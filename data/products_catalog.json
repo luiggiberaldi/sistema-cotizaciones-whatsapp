@@ -1,0 +1,124 @@
+{
+    "products": [
+        {
+            "id": 1,
+            "name": "Zapatos",
+            "aliases": [
+                "zapato",
+                "calzado",
+                "shoes",
+                "tenis",
+                "zapatillas",
+                "pares"
+            ],
+            "price": 45.99,
+            "category": "calzado"
+        },
+        {
+            "id": 2,
+            "name": "Camisa",
+            "aliases": [
+                "camisa",
+                "blusa",
+                "shirt",
+                "polo",
+                "franela"
+            ],
+            "price": 25.50,
+            "category": "ropa"
+        },
+        {
+            "id": 3,
+            "name": "Pantalón",
+            "aliases": [
+                "pantalon",
+                "pantalones",
+                "pants",
+                "jeans",
+                "vaqueros"
+            ],
+            "price": 35.00,
+            "category": "ropa"
+        },
+        {
+            "id": 4,
+            "name": "Chaqueta",
+            "aliases": [
+                "chaqueta",
+                "jacket",
+                "abrigo",
+                "sueter",
+                "sweater"
+            ],
+            "price": 55.00,
+            "category": "ropa"
+        },
+        {
+            "id": 5,
+            "name": "Gorra",
+            "aliases": [
+                "gorra",
+                "cap",
+                "sombrero",
+                "hat"
+            ],
+            "price": 15.00,
+            "category": "accesorios"
+        },
+        {
+            "id": 6,
+            "name": "Bolso",
+            "aliases": [
+                "bolso",
+                "bag",
+                "cartera",
+                "mochila",
+                "backpack"
+            ],
+            "price": 40.00,
+            "category": "accesorios"
+        },
+        {
+            "id": 7,
+            "name": "Cinturón",
+            "aliases": [
+                "cinturon",
+                "belt",
+                "correa"
+            ],
+            "price": 20.00,
+            "category": "accesorios"
+        },
+        {
+            "id": 8,
+            "name": "Medias",
+            "aliases": [
+                "medias",
+                "calcetines",
+                "socks"
+            ],
+            "price": 8.00,
+            "category": "ropa"
+        },
+        {
+            "id": 9,
+            "name": "Vestido",
+            "aliases": [
+                "vestido",
+                "dress"
+            ],
+            "price": 48.00,
+            "category": "ropa"
+        },
+        {
+            "id": 10,
+            "name": "Corbata",
+            "aliases": [
+                "corbata",
+                "tie"
+            ],
+            "price": 18.00,
+            "category": "accesorios"
+        }
+    ]
+}

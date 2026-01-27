@@ -1,0 +1,65 @@
+services:
+  # Backend API - Web Service
+  - type: web
+    name: sistema-correlativo-api
+    runtime: python3
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.main:app --host 0.0.0.0 --port 10000
+    healthCheckPath: /
+    envVars:
+      # Python
+      - key: PYTHON_VERSION
+        value: 3.12
+      
+      # Database - Supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      
+      # Security - JWT
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+      
+      # WhatsApp Cloud API
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_API_VERSION
+        value: v18.0
+      - key: WHATSAPP_API_URL
+        value: https://graph.facebook.com
+      
+      # API Configuration
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: PROJECT_NAME
+        value: Sistema Correlativo API
+      - key: VERSION
+        value: 1.0.0
+      
+      # CORS
+      - key: BACKEND_CORS_ORIGINS
+        value: '["*"]'
+    
+    # Auto-deploy on push to main branch
+    autoDeploy: true
+    
+    # Health check configuration
+    healthCheck:
+      path: /
+      intervalSeconds: 30
+      timeoutSeconds: 10
+      unhealthyThresholdCount: 3
+    
+    # Scaling configuration (Free tier: 1 instance)
+    numInstances: 1

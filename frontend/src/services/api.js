@@ -1,0 +1,69 @@
+import axios from 'axios';
+import { supabase } from '../lib/supabaseClient';
+
+// Configuración de URL base de la API
+// En desarrollo: usa proxy local (/api/v1)
+// En producción: usa variable de entorno VITE_API_URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+
+const api = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+// Interceptor para agregar el token de autenticación
+api.interceptors.request.use(async (config) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+        config.headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
+
+// Interceptor para manejo de errores
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('API Error:', error);
+        return Promise.reject(error);
+    }
+);
+
+export const quotesAPI = {
+    // Obtener todas las cotizaciones
+    getAll: async () => {
+        const response = await api.get('/quotes/');
+        return response.data;
+    },
+
+    // Obtener cotización por ID
+    getById: async (id) => {
+        const response = await api.get(`/quotes/${id}`);
+        return response.data;
+    },
+
+    // Crear cotización
+    create: async (quoteData) => {
+        const response = await api.post('/quotes', quoteData);
+        return response.data;
+    },
+};
+
+export const broadcastAPI = {
+    // Enviar mensaje plantilla a múltiples clientes
+    sendTemplate: async (clients, templateName, languageCode, parameters) => {
+        const response = await api.post('/broadcast/send-template', {
+            clients,
+            template_name: templateName,
+            language_code: languageCode,
+            parameters,
+        });
+        return response.data;
+    },
+};
+
+export default api;
