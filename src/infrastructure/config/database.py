@@ -8,9 +8,12 @@ def get_supabase_client() -> Client:
     global _supabase_client
     
     if _supabase_client is None:
+        # Priorizar service_key para operaciones de backend (bypasses RLS)
+        key = getattr(settings, 'supabase_service_key', settings.supabase_key)
+        
         _supabase_client = create_client(
             settings.supabase_url, 
-            settings.supabase_key
+            key
         )
     
     return _supabase_client
