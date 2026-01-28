@@ -48,7 +48,7 @@ class QuoteService:
         """
         now = datetime.now()
         
-        # Si hay caché válido, retornarlo
+        # Si hay caché válido Y NO ESTÁ VACÍO, retornarlo
         if (self.product_cache and 
             self.last_cache_update and 
             now - self.last_cache_update < self.cache_duration):
@@ -73,6 +73,13 @@ class QuoteService:
             if products:
                 self.product_cache = products
                 self.last_cache_update = now
+                
+                # Actualizar parser si ya existe
+                if hasattr(self, 'parser'):
+                    self.parser.update_catalog(self.product_cache)
+            else:
+                print("Warning: Repositorio retornó lista vacía de productos")
+                
         except Exception as e:
             # Log error y retornar caché anterior si existe
             print(f"Error actualizando caché de productos: {e}")
@@ -257,7 +264,7 @@ class QuoteService:
         Returns:
             Lista de productos del catálogo
         """
-        return self.product_catalog
+        return self.product_cache
     
     def search_product(self, query: str, threshold: int = 70) -> Optional[Dict]:
         """

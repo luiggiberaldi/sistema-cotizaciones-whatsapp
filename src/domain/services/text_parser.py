@@ -70,6 +70,11 @@ class TextParser:
             for alias in product.get('aliases', []):
                 alias_lower = alias.lower()
                 self.product_index[alias_lower] = product
+
+    def update_catalog(self, new_catalog: List[Dict]):
+        """Actualizar el catálogo y reconstruir el índice."""
+        self.product_catalog = new_catalog
+        self._build_product_index()
     
     def _normalize_text(self, text: str) -> str:
         """Normalizar texto: minúsculas y sin acentos."""
