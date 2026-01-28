@@ -14,11 +14,16 @@ from ..schemas import (
 )
 
 
+from ...database.product_repository import ProductRepository
+from ...config.database import get_supabase_client
+
 # Crear router
 router = APIRouter(prefix="/generate", tags=["generate"])
 
-# Inicializar servicio
-quote_service = QuoteService()
+# Inicializar repositorio y servicio
+supabase = get_supabase_client()
+product_repository = ProductRepository(supabase)
+quote_service = QuoteService(product_repository)
 
 
 def _entity_to_response(quote: Quote) -> QuoteResponseSchema:

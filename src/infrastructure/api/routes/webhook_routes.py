@@ -10,6 +10,8 @@ from ....application.use_cases import (
     ProcessWhatsAppMessageUseCase,
     RetryFailedMessagesUseCase
 )
+from ....infrastructure.config.database import get_supabase_client
+from ....infrastructure.database.product_repository import ProductRepository
 from ....infrastructure.database import SupabaseQuoteRepository
 
 logger = logging.getLogger(__name__)
@@ -17,9 +19,14 @@ logger = logging.getLogger(__name__)
 # Crear router
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
+from ....infrastructure.database.session_repository import SessionRepository
+
 # Inicializar servicios
-quote_service = QuoteService()
+supabase = get_supabase_client()
+product_repository = ProductRepository(supabase)
+quote_service = QuoteService(product_repository)
 quote_repository = SupabaseQuoteRepository()
+session_repository = SessionRepository(supabase)
 whatsapp_service = WhatsAppService()
 retry_queue = RetryQueue()
 
@@ -28,7 +35,8 @@ process_message_use_case = ProcessWhatsAppMessageUseCase(
     quote_service=quote_service,
     quote_repository=quote_repository,
     whatsapp_service=whatsapp_service,
-    retry_queue=retry_queue
+    retry_queue=retry_queue,
+    session_repository=session_repository
 )
 
 retry_messages_use_case = RetryFailedMessagesUseCase(

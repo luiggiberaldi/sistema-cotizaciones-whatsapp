@@ -2,7 +2,8 @@
 Caso de uso para procesar mensajes de WhatsApp.
 """
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
+from datetime import datetime, timedelta
 from ...domain.services import QuoteService
 from ...domain.repositories import QuoteRepository
 from ...infrastructure.external import WhatsAppService, RetryQueue
@@ -28,150 +29,212 @@ class ProcessWhatsAppMessageUseCase:
         quote_service: QuoteService,
         quote_repository: QuoteRepository,
         whatsapp_service: WhatsAppService,
-        retry_queue: RetryQueue
+        retry_queue: RetryQueue,
+        session_repository: Optional['SessionRepository'] = None  # Inject session repo
     ):
-        """
-        Inicializar caso de uso.
-        
-        Args:
-            quote_service: Servicio de cotizaciones
-            quote_repository: Repositorio de cotizaciones
-            whatsapp_service: Servicio de WhatsApp
-            retry_queue: Cola de reintentos
-        """
         self.quote_service = quote_service
         self.quote_repository = quote_repository
         self.whatsapp_service = whatsapp_service
         self.retry_queue = retry_queue
-    
+        self.session_repository = session_repository
+
     async def execute(self, message_data: Dict) -> Dict:
-        """
-        Procesar mensaje de WhatsApp.
-        
-        Args:
-            message_data: Datos del mensaje (from, text, message_id, timestamp)
-            
-        Returns:
-            Resultado del procesamiento
-        """
         from_number = message_data.get('from')
-        text = message_data.get('text', '')
+        text = message_data.get('text', '').strip()
         message_id = message_data.get('message_id')
         
         logger.info(f"Procesando mensaje de {from_number}: {text}")
+
+        # 1. Definir palabras clave
+        checkout_keywords = ['confirmar', 'listo', 'finalizar', 'comprar', 'pagar', 'fin', 'total']
+        greeting_keywords = ['hola', 'buen', 'buenas', 'que tal', 'hey', 'hello', 'hi', 'saludos']
+        quote_keywords = ['cotiz', 'precio', 'cuanto', 'quiero', 'necesito', 'tienes', 'dame', 'busca', 'valor', 'costo']
+
+        text_lower = text.lower()
+
+        # 2. Check: Checkout (prioridad si hay sesión)
+        is_checkout = any(keyword in text_lower for keyword in checkout_keywords)
+        if is_checkout and self.session_repository:
+             # Verificar si realmente tiene sesión antes de asumir checkout
+             session = self.session_repository.get_session(from_number)
+             if session and session.get('items'):
+                 return await self._handle_checkout(from_number, message_id)
+
+        # 3. Check: Saludo
+        # Si el texto es corto y parece saludo
+        if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
+            return await self._handle_greeting(from_number, message_id)
+
+        # 4. Check: Intención de Cotización
+        is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
+        
+        # Intentar parsear items independientemente de la intención explícita
+        # (ej: "2 zapatos" no tiene keyword de cotización pero es una orden)
+        try:
+            # Intentar generar cotización (parsing)
+            # Usamos una función auxiliar o el método existente modificando el manejo de error
+            return await self._handle_add_items(from_number, text, message_id, is_quote_intent)
+
+        except ValueError:
+            # Si falla el parsing
+            if is_quote_intent:
+                # Caso: Quiere cotizar pero no se entendió qué
+                msg = "🤔 Entiendo que quieres una cotización, pero no logré identificar el producto. ¿Podrías ser más específico? (Ej: '2 zapatos')"
+                await self.whatsapp_service.send_message(from_number, msg)
+                return {'success': False, 'reason': 'quote_intent_no_products'}
+            
+            # Caso: Desconocido
+            msg = "disculpa, no entendí tu mensaje. ¿Quieres ver precios o hacer un pedido? Intenta escribir algo como 'quiero 2 camisas'."
+            await self.whatsapp_service.send_message(from_number, msg)
+            return {'success': False, 'reason': 'unknown_intent'}
+
+    async def _handle_greeting(self, from_number: str, message_id: str) -> Dict:
+        msg = "¡Hola! 👋 Bienvenido a nuestro sistema de cotizaciones.\n\nPuedes pedirme productos escribiendo algo como: *\"Quiero 2 zapatos y 1 camisa\"*."
+        await self.whatsapp_service.send_message(from_number, msg)
+        await self.whatsapp_service.mark_message_as_read(message_id)
+        return {'success': True, 'action': 'greeting'}
+
+
+    async def _handle_checkout(self, from_number: str, message_id: str) -> Dict:
+        session = self.session_repository.get_session(from_number)
+        if not session or not session.get('items'):
+            await self.whatsapp_service.send_message(
+                to=from_number,
+                message="⚠️ No tienes una cotización activa para confirmar."
+            )
+            return {'success': False, 'reason': 'no_active_session'}
+
+        # Create final quote from session items
+        items = session['items']
+        
+        # Calculate total
+        # Re-verify prices in case they changed? For now, trust session or re-fetch?
+        # Better to re-create Quote objects to valid.
+        # But QuoteService expects text or exact items. 
+        # Let's reconstruct text or manually create Quote object.
+        # Manual Quote creation seems safer.
         
         try:
-            # Generar cotización desde texto
+            # Re-validate items through quote service to get fresh prices/objects
+            # Or manually construct if we trust session data.
+            # Let's manually construct to keep it simple, assuming session has valid data.
+            
+            quote_text = ", ".join([f"{item['quantity']} {item['product_name']}" for item in items])
+            logger.info(f"Generando cotización final para: {quote_text}")
+            
+            # Use service to generate quote (re-validates prices)
+            result = self.quote_service.generate_quote_with_details(
+                text=quote_text,
+                client_phone=f"+{from_number}",
+                notes="Cotización finalizada (Session)"
+            )
+            quote = result['quote']
+
+            # Save to DB
+            created_quote = await self.quote_repository.create(quote)
+            
+            # Send Final Quote
+            quote_data = self._entity_to_dict(quote)
+            await self.whatsapp_service.send_quote_message(to=from_number, quote_data=quote_data)
+            await self.whatsapp_service.mark_message_as_read(message_id)
+
+            # Clear session
+            self.session_repository.delete_session(from_number)
+            
+            return {'success': True, 'action': 'checkout', 'quote_id': created_quote.id}
+
+        except Exception as e:
+            logger.error(f"Error en checkout: {e}")
+            await self.whatsapp_service.send_message(to=from_number, message="❌ Error generando cotización final.")
+            return {'success': False, 'error': str(e)}
+
+    async def _handle_add_items(self, from_number: str, text: str, message_id: str, is_quote_intent: bool = False) -> Dict:
+        try:
+            # 1. Parse new items
             result = self.quote_service.generate_quote_with_details(
                 text=text,
-                client_phone=f"+{from_number}",  # WhatsApp envía sin +
-                fuzzy_threshold=70,
-                notes=f"Generado desde WhatsApp (msg_id: {message_id})"
+                client_phone=f"+{from_number}",
+                fuzzy_threshold=70
             )
+            new_quote = result['quote']
             
-            quote = result['quote']
-            confidence_scores = result['confidence_scores']
+            # Si no hay items, QuoteService debería haber lanzado ValueError,
+            # pero por seguridad verificamos
+            if not new_quote.items:
+                 raise ValueError("No items parsed")
 
-            # Guardar en Base de Datos
-            logger.info("Guardando cotización en base de datos...")
-            logger.info(f"Tipo de quote: {type(quote)}")
-            logger.info(f"Contenido de quote: {quote}")
-            logger.info(f"Status type: {type(quote.status)}")
+            new_items = self._entity_to_dict(new_quote)['items']
+
+            # 2. Get existing session
+            current_items = []
+            if self.session_repository:
+                session = self.session_repository.get_session(from_number)
+                if session:
+                    # Check expiry (30 mins)
+                    updated_at = datetime.fromisoformat(session['updated_at'].replace('Z', '+00:00'))
+                    if datetime.now(updated_at.tzinfo) - updated_at > timedelta(minutes=30):
+                        self.session_repository.delete_session(from_number)
+                    else:
+                        current_items = session.get('items', [])
+
+            # 3. Merge items
+            merged_items = self._merge_items(current_items, new_items)
+
+            # 4. Save session
+            if self.session_repository:
+                self.session_repository.create_or_update_session(from_number, merged_items)
+
+            # 5. Send Partial Summary
+            # Calculate partial total locally for speed
+            total = sum(item['subtotal'] for item in merged_items)
             
-            created_quote = await self.quote_repository.create(quote)
-            logger.info(f"Cotización guardada con ID: {created_quote.id}")
+            response_text = "✅ *Productos Agregados*\n\n"
+            for item in new_items:
+                response_text += f"+ {item['quantity']} {item['product_name']}\n"
             
-            # Preparar datos para enviar
-            quote_data = {
-                'items': [
-                    {
-                        'product_name': item.product_name,
-                        'quantity': item.quantity,
-                        'unit_price': item.unit_price,
-                        'subtotal': item.subtotal
-                    }
-                    for item in quote.items
-                ],
-                'total': quote.total
-            }
+            response_text += f"\n🛒 *Total Acumulado:* ${total:.2f}\n"
+            response_text += "Envia más productos o escribe *'confirmar'* para finalizar."
             
-            # Intentar enviar respuesta
-            try:
-                await self.whatsapp_service.send_quote_message(
-                    to=from_number,
-                    quote_data=quote_data
-                )
-                
-                # Marcar mensaje como leído
-                await self.whatsapp_service.mark_message_as_read(message_id)
-                
-                logger.info(f"Cotización enviada exitosamente a {from_number}")
-                
-                return {
-                    'success': True,
-                    'quote': quote_data,
-                    'confidence_scores': confidence_scores,
-                    'sent': True
-                }
-                
-            except Exception as send_error:
-                # Si falla el envío, agregar a cola de reintentos
-                logger.error(f"Error enviando mensaje: {send_error}")
-                
-                message_text = self.whatsapp_service._format_quote_message(quote_data)
-                
-                self.retry_queue.add_message(
-                    message_id=f"retry_{message_id}",
-                    to=from_number,
-                    message=message_text,
-                    quote_data=quote_data,
-                    max_attempts=5,
-                    error=str(send_error)
-                )
-                
-                return {
-                    'success': True,
-                    'quote': quote_data,
-                    'confidence_scores': confidence_scores,
-                    'sent': False,
-                    'queued_for_retry': True,
-                    'error': str(send_error)
-                }
-        
+            await self.whatsapp_service.send_message(to=from_number, message=response_text)
+            await self.whatsapp_service.mark_message_as_read(message_id)
+            
+            return {'success': True, 'action': 'add_items', 'items_count': len(merged_items)}
+
         except ValueError as e:
-            # No se pudo generar cotización del texto
-            logger.warning(f"No se pudo generar cotización: {e}")
-            
-            # Enviar mensaje de error al usuario
-            error_message = (
-                "❌ No pude entender tu solicitud.\n\n"
-                "Por favor, intenta de nuevo con un formato como:\n"
-                "\"Quiero 2 zapatos y 1 camisa\""
-            )
-            
-            try:
-                await self.whatsapp_service.send_message(
-                    to=from_number,
-                    message=error_message
-                )
-            except Exception as send_error:
-                logger.error(f"Error enviando mensaje de error: {send_error}")
-            
-            return {
-                'success': False,
-                'error': str(e),
-                'sent_error_message': True
-            }
+            # Re-raise to be handled by execute() based on intent
+            raise e
+
+    def _merge_items(self, current: List[Dict], new: List[Dict]) -> List[Dict]:
+        """Merge new items into current list, summing quantities."""
+        merged = {item['product_name']: item for item in current}
         
-        except Exception as e:
-            # Error inesperado
-            logger.error(f"Error inesperado procesando mensaje: {e}", exc_info=True)
-            
-            return {
-                'success': False,
-                'error': str(e),
-                'sent_error_message': False
-            }
+        for item in new:
+            name = item['product_name']
+            if name in merged:
+                merged[name]['quantity'] += item['quantity']
+                merged[name]['subtotal'] += item['subtotal'] # Aprox, should recalc unit * qty
+                # Recalculate subtotal correctly
+                merged[name]['subtotal'] = merged[name]['quantity'] * merged[name]['unit_price']
+            else:
+                merged[name] = item
+                
+        return list(merged.values())
+
+    def _entity_to_dict(self, quote) -> Dict:
+        """Helper to convert quote entity to dict for JSON serialization."""
+        return {
+            'items': [
+                {
+                    'product_name': item.product_name,
+                    'quantity': item.quantity,
+                    'unit_price': item.unit_price,
+                    'subtotal': item.subtotal,
+                    'description': getattr(item, 'description', '')
+                }
+                for item in quote.items
+            ],
+            'total': quote.total
+        }
 
 
 class RetryFailedMessagesUseCase:

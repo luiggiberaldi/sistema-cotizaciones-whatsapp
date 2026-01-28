@@ -3,7 +3,8 @@ Servicio de dominio para generar cotizaciones desde texto libre.
 """
 import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
+from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from ..entities.quote import Quote, QuoteItem, QuoteStatus
 from .text_parser import TextParser
@@ -20,31 +21,63 @@ class QuoteService:
     - Validar datos
     """
     
-    def __init__(self, catalog_path: Optional[str] = None):
+    def __init__(self, product_repository: Optional['ProductRepository'] = None):
         """
         Inicializar servicio.
         
         Args:
-            catalog_path: Ruta al archivo JSON del catálogo (opcional)
+            product_repository: Repositorio de productos (opcional para pruebas)
         """
-        if catalog_path is None:
-            # Ruta por defecto al catálogo
-            base_dir = Path(__file__).parent.parent.parent.parent
-            catalog_path = base_dir / "data" / "products_catalog.json"
+        self.product_repository = product_repository
+        self.product_cache = []
+        self.last_cache_update = None
+        self.cache_duration = timedelta(minutes=10)
         
-        self.catalog_path = Path(catalog_path)
-        self.product_catalog = self._load_catalog()
-        self.parser = TextParser(self.product_catalog)
+        # Cargar catálogo inicial
+        self._load_catalog()
+        
+        # Inicializar parser con el catálogo cargado
+        self.parser = TextParser(self.product_cache)
     
     def _load_catalog(self) -> List[Dict]:
-        """Cargar catálogo de productos desde JSON."""
-        if not self.catalog_path.exists():
-            raise FileNotFoundError(f"Catálogo no encontrado: {self.catalog_path}")
+        """
+        Cargar catálogo de productos con caché.
         
-        with open(self.catalog_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        Returns:
+            Lista de productos
+        """
+        now = datetime.now()
         
-        return data.get('products', [])
+        # Si hay caché válido, retornarlo
+        if (self.product_cache and 
+            self.last_cache_update and 
+            now - self.last_cache_update < self.cache_duration):
+            return self.product_cache
+            
+        # Si no hay repositorio, intentar cargar mock (para tests legacy)
+        if not self.product_repository:
+            # Fallback a archivo JSON si no hay repositorio (legacy support)
+            base_dir = Path(__file__).parent.parent.parent.parent
+            catalog_path = base_dir / "data" / "products_catalog.json"
+            if catalog_path.exists():
+                with open(catalog_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.product_cache = data.get('products', [])
+                    self.last_cache_update = now
+                    return self.product_cache
+            return []
+            
+        # Cargar de repositorio
+        try:
+            products = self.product_repository.get_all_products()
+            if products:
+                self.product_cache = products
+                self.last_cache_update = now
+        except Exception as e:
+            # Log error y retornar caché anterior si existe
+            print(f"Error actualizando caché de productos: {e}")
+            
+        return self.product_cache
     
     def _calculate_precise_decimal(self, value: float) -> Decimal:
         """
