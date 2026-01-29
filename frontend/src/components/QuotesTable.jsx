@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckSquare, Square } from 'lucide-react';
 
-const QuotesTable = ({ quotes, selectedClients, onSelectClient }) => {
+const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
     const getStatusBadge = (status) => {
         const statusConfig = {
             draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Borrador' },
@@ -37,17 +37,12 @@ const QuotesTable = ({ quotes, selectedClients, onSelectClient }) => {
         }).format(amount);
     };
 
-    const isSelected = (phone) => {
-        return selectedClients.some((client) => client.phone === phone);
+    const isSelected = (id) => {
+        return selectedQuotes.some((quote) => quote.id === id);
     };
 
     const handleToggleSelect = (quote) => {
-        const client = {
-            name: `Cliente #${quote.id}`,
-            phone: quote.client_phone,
-            quoteId: quote.id,
-        };
-        onSelectClient(client);
+        onSelectQuote(quote);
     };
 
     if (!quotes || quotes.length === 0) {
@@ -91,7 +86,7 @@ const QuotesTable = ({ quotes, selectedClients, onSelectClient }) => {
                         {quotes.map((quote) => (
                             <tr
                                 key={quote.id}
-                                className={`hover:bg-gray-50 transition ${isSelected(quote.client_phone) ? 'bg-primary-50' : ''
+                                className={`hover:bg-gray-50 transition ${isSelected(quote.id) ? 'bg-primary-50' : ''
                                     }`}
                             >
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -99,7 +94,7 @@ const QuotesTable = ({ quotes, selectedClients, onSelectClient }) => {
                                         onClick={() => handleToggleSelect(quote)}
                                         className="text-primary-600 hover:text-primary-800 transition"
                                     >
-                                        {isSelected(quote.client_phone) ? (
+                                        {isSelected(quote.id) ? (
                                             <CheckSquare size={24} />
                                         ) : (
                                             <Square size={24} />

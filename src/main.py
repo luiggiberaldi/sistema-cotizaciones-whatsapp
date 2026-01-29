@@ -5,7 +5,7 @@ Punto de entrada del sistema de cotizaciones.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .infrastructure.config.settings import settings
-from .infrastructure.api.routes import quote_router, generate_router, webhook_router, broadcast_router, product_router
+from .infrastructure.api.routes import quote_router, generate_router, webhook_router, broadcast_router, product_router, business_info_routes
 
 
 # Crear aplicación FastAPI
@@ -49,6 +49,7 @@ app.include_router(generate_router, prefix=settings.api_v1_prefix)
 app.include_router(webhook_router, prefix=settings.api_v1_prefix)
 app.include_router(broadcast_router, prefix=settings.api_v1_prefix)
 app.include_router(product_router, prefix=settings.api_v1_prefix)
+app.include_router(business_info_routes.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/", tags=["health"])

@@ -82,6 +82,28 @@ export const productsAPI = {
     delete: async (id) => {
         const response = await api.delete(`/products/${id}`);
         return response.data;
+    },
+};
+
+export const businessInfoAPI = {
+    getBusinessInfo: async () => {
+        try {
+            const response = await api.get('/business-info/');
+            return response.data;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    },
+
+    updateBusinessInfo: async (updates) => {
+        try {
+            const response = await api.put('/business-info/', updates);
+            return response.data;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
     }
 };
 
