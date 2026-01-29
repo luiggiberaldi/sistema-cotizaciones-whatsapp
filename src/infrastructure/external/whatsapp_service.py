@@ -116,7 +116,8 @@ class WhatsAppService:
         self,
         to: str,
         link: str,
-        caption: Optional[str] = None
+        caption: Optional[str] = None,
+        filename: Optional[str] = None
     ) -> Dict:
         """
         Enviar documento (PDF) por WhatsApp.
@@ -125,6 +126,7 @@ class WhatsAppService:
             to: Número de teléfono
             link: URL pública del documento (PDF)
             caption: Texto opcional
+            filename: Nombre del archivo a mostrar (opcional)
             
         Returns:
             Respuesta de la API
@@ -136,15 +138,20 @@ class WhatsAppService:
             "Content-Type": "application/json"
         }
         
+        document_object = {
+            "link": link,
+            "caption": caption or ""
+        }
+        
+        if filename:
+            document_object["filename"] = filename
+        
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": to,
             "type": "document",
-            "document": {
-                "link": link,
-                "caption": caption or ""
-            }
+            "document": document_object
         }
         
         async with httpx.AsyncClient() as client:

@@ -158,13 +158,21 @@ class ProcessWhatsAppMessageUseCase:
                     await self.whatsapp_service.send_document(
                         to=from_number,
                         link=public_url,
-                        caption="📂 Aquí tienes nuestro catálogo actualizado."
+                        caption="📂 A continuación, el catálogo actualizado:",
+                        filename="Catalogo_Productos_2026.pdf"
                     )
         except Exception as e:
             logger.error(f"Error enviando catálogo: {e}")
 
         # 2. Enviar Mensaje de Bienvenida Textual
-        msg = f"¡Hola{greeting_name}! 👋 Bienvenido a nuestro sistema de cotizaciones.\n\nPara hacer un pedido, solo escribe algo como: *\"Quiero 2 zapatos y 1 camisa\"*."
+        msg = (
+            f"¡Hola{greeting_name}! 👋 Bienvenido a nuestro sistema de cotizaciones.\n"
+            "📂 Arriba te adjunto nuestro catálogo actualizado.\n"
+            "Para cotizar, escríbeme como si hablaras con un vendedor. Por ejemplo:\n"
+            "👉 'Precio de las gomas'\n"
+            "👉 'Quiero 2 chemises y 1 pantalón'\n"
+            "¡Estoy listo para atenderte!"
+        )
         await self.whatsapp_service.send_message(from_number, msg)
         await self.whatsapp_service.mark_message_as_read(message_id)
         return {'success': True, 'action': 'greeting'}
