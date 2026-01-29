@@ -13,10 +13,24 @@ const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
         setResults(null);
 
         try {
-            const params = parameters
-                .split(',')
-                .map((p) => p.trim())
-                .filter((p) => p);
+            let params;
+
+            if (templateName === 'payment_reminder') {
+                // Modo Automático: Nombre, Total, Fecha (input user)
+                // Enviamos placeholders que el backend (o lógica de envío) deberá procesar
+                // Si el backend espera recibir los valores reales por cliente, 
+                // entonces la API debe soportar recibir variables, o el backend iterar.
+                // Asumimos que el backend reconocerá {{name}} y {{total}} o que
+                // el usuario solo quería que los enviáramos "pre-llenos" como strings 
+                // para que el backend haga el reemplazo si tiene esa lógica.
+                // Dado el requerimiento "automatiza el llenado", enviamos la estructura fija.
+                params = ['{{name}}', '{{total}}', parameters.trim()];
+            } else {
+                params = parameters
+                    .split(',')
+                    .map((p) => p.trim())
+                    .filter((p) => p);
+            }
 
             const result = await onSend(selectedClients, templateName, languageCode, params);
             setResults(result);
@@ -123,19 +137,46 @@ const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
                         {/* Parameters */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Parámetros (separados por coma)
+                                Parámetros
                             </label>
-                            <input
-                                type="text"
-                                value={parameters}
-                                onChange={(e) => setParameters(e.target.value)}
-                                placeholder="Ej: Juan, $100.00"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                disabled={sending}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Opcional: valores para variables del template
-                            </p>
+
+                            {templateName === 'payment_reminder' ? (
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <p className="text-sm text-blue-800 font-medium mb-2">
+                                        ✨ Modo Automático Activado
+                                    </p>
+                                    <p className="text-xs text-blue-600 mb-3">
+                                        Los parámetros se llenarán automáticamente para cada cliente:
+                                        <br />1. Nombre del Cliente
+                                        <br />2. Total de la Cotización
+                                    </p>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                        Parámetro 3: Fecha de Vencimiento
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={parameters}
+                                        onChange={(e) => setParameters(e.target.value)}
+                                        placeholder="Ej: mañana a las 5pm"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                        disabled={sending}
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    <input
+                                        type="text"
+                                        value={parameters}
+                                        onChange={(e) => setParameters(e.target.value)}
+                                        placeholder="Ej: Juan, $100.00"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                        disabled={sending}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Separa los parámetros por coma (,)
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -150,8 +191,8 @@ const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
                                     <div
                                         key={index}
                                         className={`flex items-center justify-between p-2 rounded ${result.success
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-red-100 text-red-800'
                                             }`}
                                     >
                                         <span className="text-sm">{result.phone}</span>

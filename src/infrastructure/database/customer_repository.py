@@ -94,7 +94,7 @@ class CustomerRepository:
             
             # La propiedad count viene en el response
             if quotes_check.count and quotes_check.count > 0:
-                raise ValueError("IntegrityError: No se puede eliminar el cliente porque tiene cotizaciones registradas.")
+                raise ValueError("No se puede eliminar el cliente porque tiene cotizaciones registradas.")
             
             # 2. Eliminar
             response = self.supabase.table(self.table)\

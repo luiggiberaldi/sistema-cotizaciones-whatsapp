@@ -42,7 +42,14 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
     };
 
     const handleToggleSelect = (quote) => {
-        onSelectQuote(quote);
+        const client = {
+            id: quote.id, // For compatibility with isSelected
+            name: quote.client_name || `Cliente #${quote.id}`,
+            phone: quote.client_phone,
+            quoteId: quote.id,
+            total: quote.total
+        };
+        onSelectQuote(client);
     };
 
     if (!quotes || quotes.length === 0) {

@@ -1,10 +1,18 @@
+import React, { useState, useEffect } from 'react';
 import { customersAPI } from '../services/api';
 import { Search, MapPin, User, Phone, Trash2 } from 'lucide-react';
+import ConfirmationModal from './ConfirmationModal';
+import AlertModal from './AlertModal';
 
 const CustomersPage = () => {
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // UI State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [customerToDelete, setCustomerToDelete] = useState(null);
+    const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'error' });
 
     useEffect(() => {
         loadCustomers();
@@ -22,20 +30,39 @@ const CustomersPage = () => {
         }
     };
 
-    const handleDelete = async (customer) => {
-        if (!window.confirm(`¿Estás seguro de que deseas eliminar a ${customer.full_name}?`)) {
-            return;
-        }
+    // Open confirmation modal
+    const onClickDelete = (customer) => {
+        setCustomerToDelete(customer);
+        setDeleteModalOpen(true);
+    };
+
+    // Actual delete logic
+    const confirmDelete = async () => {
+        if (!customerToDelete) return;
 
         try {
-            await customersAPI.delete(customer.id);
-            setCustomers(customers.filter(c => c.id !== customer.id));
+            await customersAPI.delete(customerToDelete.id);
+            setCustomers(customers.filter(c => c.id !== customerToDelete.id));
+            setDeleteModalOpen(false);
+            setCustomerToDelete(null);
         } catch (error) {
             console.error(error);
+            setDeleteModalOpen(false); // Close confirm modal to show error
+
             if (error.response?.status === 400) {
-                alert(error.response.data.detail || "No se puede eliminar porque tiene cotizaciones asociadas.");
+                setAlertModal({
+                    isOpen: true,
+                    title: 'No se puede eliminar',
+                    message: error.response.data.detail || "No se puede eliminar porque tiene cotizaciones asociadas.",
+                    type: 'error'
+                });
             } else {
-                alert("Ocurrió un error al eliminar el cliente.");
+                setAlertModal({
+                    isOpen: true,
+                    title: 'Error',
+                    message: "Ocurrió un error inesperado al eliminar el cliente.",
+                    type: 'error'
+                });
             }
         }
     };
@@ -103,7 +130,7 @@ const CustomersPage = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button
-                                        onClick={() => handleDelete(customer)}
+                                        onClick={() => onClickDelete(customer)}
                                         className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full transition-colors"
                                         title="Eliminar Cliente"
                                     >
@@ -118,6 +145,23 @@ const CustomersPage = () => {
                     <div className="text-center py-8 text-gray-500">No se encontraron clientes.</div>
                 )}
             </div>
+
+            <ConfirmationModal
+                isOpen={deleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Eliminar Cliente"
+                message={`¿Estás seguro de que deseas eliminar a ${customerToDelete?.full_name}? Esta acción no se puede deshacer.`}
+                isDanger={true}
+            />
+
+            <AlertModal
+                isOpen={alertModal.isOpen}
+                onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+                title={alertModal.title}
+                message={alertModal.message}
+                type={alertModal.type}
+            />
         </div>
     );
 };
