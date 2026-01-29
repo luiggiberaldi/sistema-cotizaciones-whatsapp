@@ -255,6 +255,11 @@ class ProcessWhatsAppMessageUseCase:
             quote.client_name = client_data.get('name')
             quote.client_dni = client_data.get('dni')
             quote.client_address = client_data.get('address')
+            
+            # Inicializar notes si es None para evitar TypeError
+            if quote.notes is None:
+                quote.notes = ""
+                
             if quote.client_name:
                  quote.notes += f" | Cliente: {quote.client_name} - {quote.client_dni}"
 

@@ -37,7 +37,10 @@ class SupabaseQuoteRepository(QuoteRepository):
             created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00")) if data.get("created_at") else None,
             updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00")) if data.get("updated_at") else None,
             notes=data.get("notes"),
-            customer_id=data.get("customer_id")
+            customer_id=data.get("customer_id"),
+            client_name=data.get("client_name"),
+            client_dni=data.get("client_dni"),
+            client_address=data.get("client_address")
         )
     
     def _quote_to_dict(self, quote: Quote) -> dict:
@@ -54,6 +57,13 @@ class SupabaseQuoteRepository(QuoteRepository):
             
         if quote.customer_id:
             data["customer_id"] = quote.customer_id
+            
+        if quote.client_name:
+            data["client_name"] = quote.client_name
+        if quote.client_dni:
+            data["client_dni"] = quote.client_dni
+        if quote.client_address:
+            data["client_address"] = quote.client_address
         
         return data
     
