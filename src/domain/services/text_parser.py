@@ -20,6 +20,7 @@ class TextParser:
     # Patrones de números en español
     NUMERO_PALABRAS = {
         'un': 1, 'una': 1, 'uno': 1,
+        'unos': 1, 'unas': 1, 'el': 1, 'la': 1, 'los': 1, 'las': 1, # Artículos como cantidad 1
         'dos': 2,
         'tres': 3,
         'cuatro': 4,
@@ -43,8 +44,8 @@ class TextParser:
     # Palabras a ignorar
     STOPWORDS = {
         'quiero', 'necesito', 'dame', 'por', 'favor', 'me', 'gustaria',
-        'quisiera', 'deseo', 'comprar', 'y', 'de', 'el', 'la', 'los', 'las',
-        'un', 'una', 'unos', 'unas', 'para', 'con', 'sin'
+        'quisiera', 'deseo', 'comprar', 'y', 'de', 'para', 'con', 'sin',
+        'precio', 'costo', 'valor', 'cuanto', 'como', 'donde' # Nuevas stopwords de ruido
     }
     
     def __init__(self, product_catalog: List[Dict]):
@@ -96,18 +97,22 @@ class TextParser:
         
         Patrones soportados:
         - "2 zapatos"
-        - "dos zapatos"
         - "zapatos" (cantidad = 1 por defecto)
+        - "unos zapatos"
         """
         text = self._normalize_text(text)
         
         # Palabras de relleno/unidades a ignorar entre el número y el producto
-        # Ej: pares, unidades, piezas, cajas, paquetes, de
         fillers = r'(?:(?:pares|unidades|piezas|cajas|paquetes|botellas|kilos|gramos|litros|de)\s+)*'
         
-        # Patrón: número + (relleno opcional) + producto
-        # Ejemplos: "2 zapatos", "3 pares de zapatos", "1 caja de camisas"
-        pattern = r'(\d+|' + '|'.join(self.NUMERO_PALABRAS.keys()) + r')\s+' + fillers + r'([a-z]+)'
+        # Ordenar claves por longitud para regex (primero las más largas)
+        num_keys = sorted(self.NUMERO_PALABRAS.keys(), key=len, reverse=True)
+        num_pattern = '|'.join(map(re.escape, num_keys))
+        
+        # Patrón: (opcional: número + espacio) + relleno + producto
+        # Group 1: Cantidad (opcional)
+        # Group 2: Producto (obligatorio, al menos 2 letras)
+        pattern = r'(?:(\d+|' + num_pattern + r')\s+)?' + fillers + r'([a-zñ]{2,})'
         
         pairs = []
         matches = re.finditer(pattern, text)
@@ -116,15 +121,19 @@ class TextParser:
             quantity_str = match.group(1)
             product_str = match.group(2)
             
-            # Convertir cantidad a número
-            if quantity_str.isdigit():
-                quantity = int(quantity_str)
-            else:
-                quantity = self.NUMERO_PALABRAS.get(quantity_str, 1)
+            # Ignorar si es stopword
+            if product_str in self.STOPWORDS:
+                continue
             
-            # Ignorar stopwords
-            if product_str not in self.STOPWORDS:
-                pairs.append((quantity, product_str))
+            # Determinar cantidad
+            quantity = 1
+            if quantity_str:
+                if quantity_str.isdigit():
+                    quantity = int(quantity_str)
+                else:
+                    quantity = self.NUMERO_PALABRAS.get(quantity_str, 1)
+            
+            pairs.append((quantity, product_str))
         
         return pairs
     
