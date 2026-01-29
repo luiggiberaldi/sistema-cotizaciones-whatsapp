@@ -39,6 +39,17 @@ class BusinessInfoService:
         """Obtener toda la info (directo de BD para dashboard)."""
         return self.repository.get_all()
 
+    def get_info_by_key(self, key: str) -> Optional[BusinessInfo]:
+        """Busca un objeto BusinessInfo específico por su clave."""
+        # Aseguramos que la info esté cargada (usando el método existente que tiene caché)
+        all_info = self.get_all_info()
+        
+        # Buscamos la clave en la lista
+        for item in all_info:
+            if item.key == key:
+                return item
+        return None
+
     def update_info(self, updates: List[Dict]) -> List[BusinessInfo]:
         """Actualizar información y limpiar caché."""
         updated = self.repository.update_bulk(updates)

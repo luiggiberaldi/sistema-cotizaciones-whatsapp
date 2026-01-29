@@ -108,6 +108,21 @@ class Quote(StrictBaseModel):
         None,
         description="ID del cliente asociado (UUID)"
     )
+    client_name: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="Nombre del cliente para el recibo"
+    )
+    client_dni: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Cédula o RIF del cliente"
+    )
+    client_address: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Dirección fiscal o de entrega del cliente"
+    )
     
     @field_validator('client_phone')
     @classmethod

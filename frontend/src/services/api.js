@@ -51,6 +51,12 @@ export const quotesAPI = {
         const response = await api.post('/quotes', quoteData);
         return response.data;
     },
+
+    // Eliminar cotización
+    delete: async (id) => {
+        const response = await api.delete(`/quotes/${id}`);
+        return response.data;
+    },
 };
 
 export const broadcastAPI = {

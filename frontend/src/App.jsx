@@ -6,7 +6,7 @@ import BroadcastListModal from './components/BroadcastListModal';
 import ProductManagementPage from './components/ProductManagementPage';
 import BusinessInfoPage from './components/BusinessInfoPage';
 import { quotesAPI, broadcastAPI } from './services/api';
-import { MessageSquare, RefreshCw, LogOut, AlertCircle, ShoppingBag, LayoutDashboard, Store } from 'lucide-react';
+import { MessageSquare, RefreshCw, LogOut, AlertCircle, ShoppingBag, LayoutDashboard, Store, Trash2 } from 'lucide-react';
 
 function App() {
     const [session, setSession] = useState(null);
@@ -106,6 +106,30 @@ function App() {
             return result;
         } catch (error) {
             throw new Error(error.response?.data?.detail || 'Error al enviar mensajes');
+        }
+    };
+
+    const handleDeleteQuotes = async () => {
+        if (!window.confirm(`¿Estás seguro de que deseas eliminar ${selectedQuotes.length} cotizaciones?`)) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            // Delete sequentially to avoid overwhelming the server/DB connection if many are selected
+            for (const quote of selectedQuotes) {
+                await quotesAPI.delete(quote.id);
+            }
+
+            // Clear selection and reload
+            setSelectedQuotes([]);
+            await loadQuotes();
+
+        } catch (err) {
+            console.error('Error deleting quotes:', err);
+            setError('Error al eliminar las cotizaciones. Intente nuevamente.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -214,17 +238,30 @@ function App() {
                                     </span>
                                 </div>
                             </div>
-                            <button
-                                onClick={handleOpenBroadcastModal}
-                                disabled={selectedQuotes.length === 0}
-                                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${selectedQuotes.length > 0
-                                    ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-md transform hover:-translate-y-0.5'
-                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    }`}
-                            >
-                                <MessageSquare size={20} />
-                                <span>Crear Lista de Difusión</span>
-                            </button>
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={handleOpenBroadcastModal}
+                                    disabled={selectedQuotes.length === 0}
+                                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${selectedQuotes.length > 0
+                                        ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-md transform hover:-translate-y-0.5'
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        }`}
+                                >
+                                    <MessageSquare size={20} />
+                                    <span>Crear Lista de Difusión</span>
+                                </button>
+                                <button
+                                    onClick={handleDeleteQuotes}
+                                    disabled={selectedQuotes.length === 0}
+                                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${selectedQuotes.length > 0
+                                        ? 'bg-red-100 text-red-700 hover:bg-red-200 shadow-sm transform hover:-translate-y-0.5'
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        }`}
+                                >
+                                    <Trash2 size={20} />
+                                    <span>Borrar</span>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Error Message */}
