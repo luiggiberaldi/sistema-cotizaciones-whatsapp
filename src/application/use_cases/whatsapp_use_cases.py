@@ -239,9 +239,13 @@ class ProcessWhatsAppMessageUseCase:
                 await self.whatsapp_service.send_message(from_number, msg)
                 return {'success': False, 'reason': 'quote_intent_no_products'}
             
-            msg = "disculpa, no entendí tu mensaje. ¿Quieres ver precios o hacer un pedido? Intenta escribir algo como 'quiero 2 camisas'."
-            await self.whatsapp_service.send_message(from_number, msg)
-            return {'success': False, 'reason': 'unknown_intent'}
+            # Fallback a Gemini AI
+            from ...infrastructure.external.gemini_service import GeminiService
+            gemini = GeminiService()
+            response_text = await gemini.get_fallback_response(text)
+            
+            await self.whatsapp_service.send_message(from_number, response_text)
+            return {'success': True, 'action': 'fallback_ai'}
 
     async def _handle_greeting(self, from_number: str, message_id: str, customer: Optional[Dict] = None) -> Dict:
         # 1. Enviar Mensaje de Bienvenida Textual

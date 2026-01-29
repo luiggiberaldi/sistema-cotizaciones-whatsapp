@@ -35,7 +35,11 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_api_version: str = "v18.0"
+    whatsapp_api_version: str = "v18.0"
     whatsapp_api_url: str = "https://graph.facebook.com"
+    
+    # Configuración de Gemini AI
+    gemini_api_key: str = ""
     
     model_config = SettingsConfigDict(
         env_file=".env",
