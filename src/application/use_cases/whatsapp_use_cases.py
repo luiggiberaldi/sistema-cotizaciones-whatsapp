@@ -87,23 +87,27 @@ class ProcessWhatsAppMessageUseCase:
             else:
                 logger.info(f"Cliente nuevo detectado: {from_number}")
 
-        # 1. Definir palabras clave
+        # 1. Definir todas las palabras clave e intenciones globales
         greeting_keywords = ['hola', 'buen', 'buenas', 'que tal', 'hey', 'hello', 'hi', 'saludos']
         location_keywords = ['ubicacion', 'donde', 'direccion', 'local', 'tienda', 'ubicados', 'horario', 'hora', 'abierto']
         delivery_keywords = ['delivery', 'envio', 'domicilio', 'traer', 'llevan', 'zonas', 'costo de envio']
-        payment_keywords = ['pagar', 'pago', 'cuenta', 'zelle', 'binance', 'banco', 'transferencia', 'pago movil', 'bolivares', 'dolares', 'metodos']
+        payment_keywords = ['pagar', 'pago', 'cuenta', 'zelle', 'binance', 'banco', 'transferencia', 'pago movil', 'bolivares', 'dolares', 'metodos', 'como pago']
+        quote_keywords = ['cotiz', 'precio', 'cuanto', 'quiero', 'necesito', 'tienes', 'dame', 'busca', 'valor', 'costo']
         
         checkout_keywords = ['confirmar', 'listo', 'finalizar', 'comprar', 'fin', 'total']
         confirmation_keywords = ['si', 'sí', 'ok', 'claro', 'dale', 'bueno']
-        quote_keywords = ['cotiz', 'precio', 'cuanto', 'quiero', 'necesito', 'tienes', 'dame', 'busca', 'valor', 'costo']
 
         text_lower = text.lower()
+        is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
+        is_checkout_explicit = any(keyword in text_lower for keyword in checkout_keywords)
 
-        # 2. Check: Saludo (PRIORIDAD ALTA)
+        # 2. INTENCIONES PRIORITARIAS (Interrumpen cualquier flujo)
+        
+        # A. Saludo
         if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
             return await self._handle_greeting(from_number, message_id, customer)
 
-        # 3. Check: Ubicación / Dirección / Horario (FAQ)
+        # B. FAQ: Ubicación / Horario
         if any(keyword in text_lower for keyword in location_keywords):
              from ...infrastructure.services.business_info_service import BusinessInfoService
              business_service = BusinessInfoService()
@@ -113,7 +117,7 @@ class ProcessWhatsAppMessageUseCase:
              await self.whatsapp_service.send_message(from_number, msg)
              return {'success': True, 'action': 'location_info'}
 
-        # 4. Check: Delivery / Envíos (FAQ)
+        # C. FAQ: Delivery
         if any(keyword in text_lower for keyword in delivery_keywords):
              from ...infrastructure.services.business_info_service import BusinessInfoService
              business_service = BusinessInfoService()
@@ -127,89 +131,88 @@ class ProcessWhatsAppMessageUseCase:
              await self.whatsapp_service.send_message(from_number, msg)
              return {'success': True, 'action': 'delivery_info'}
              
-        # 5. Check: Métodos de Pago (FAQ)
+        # D. FAQ: Métodos de Pago
         if any(keyword in text_lower for keyword in payment_keywords):
              from ...infrastructure.services.business_info_service import BusinessInfoService
              business_service = BusinessInfoService()
-             
              metodos = business_service.get_value("metodos_pago", "Aceptamos Efectivo, Pago Móvil, Zelle y Binance.")
-             pm = business_service.get_value("pago_movil", "Solicita los datos de pago móvil al finalizar tu pedido.")
+             pm = business_service.get_value("pago_movil", "Solicita los datos de pago móvil.")
              zelle = business_service.get_value("zelle", "")
              binance = business_service.get_value("binance", "")
-             
              msg = f"💳 *Métodos de Pago:* \n{metodos}\n\n"
              if pm: msg += f"📲 *Pago Móvil:* \n{pm}\n\n"
              if zelle: msg += f"🇺🇸 *Zelle:* \n{zelle}\n\n"
              if binance: msg += f"🪙 *Binance:* \n{binance}"
-             
              await self.whatsapp_service.send_message(from_number, msg.strip())
              return {'success': True, 'action': 'payment_info'}
 
-        # 6. Check: Session State Machine (Wizard de Datos)
+        # E. Nueva Cotización o Agregar Items (Incluso si estamos en wizard, esto permite 'escapar' para comprar más)
+        if is_quote_intent:
+            try:
+                return await self._handle_add_items(from_number, text, message_id, is_quote_intent)
+            except ValueError:
+                # Si falló el parseo pero era intención clara, avisamos
+                msg = "🤔 Entiendo que quieres una cotización, pero no logré identificar el producto. ¿Podrías decirme qué necesitas exactamente?"
+                await self.whatsapp_service.send_message(from_number, msg)
+                return {'success': False, 'reason': 'quote_intent_no_products'}
+
+        # 3. GESTIÓN DE WIZARD (Recolección de Datos)
         if self.session_repository:
             session = self.session_repository.get_session(from_number)
             if session:
                 step = session.get('conversation_step', 'shopping')
                 client_data = session.get('client_data', {}) or {}
                 
-                # Estado: Esperando Nombre
+                # --- Validaciones de Estado ---
+                
+                # A. Esperando Nombre
                 if step == 'WAITING_NAME':
+                    # Validación básica: No debe ser un número largo ni tener palabras clave de otras cosas
+                    if len(text.split()) > 6 or any(kw in text_lower for kw in ['precio', 'cuanto', 'delivery', 'pago']):
+                        await self.whatsapp_service.send_message(from_number, "🤔 Disculpa, ¿podrías indicarme tu **Nombre y Apellido** para continuar con el registro?")
+                        return {'success': False, 'reason': 'invalid_name_input'}
+                        
                     client_data['name'] = text
-                    self.session_repository.create_or_update_session(
-                        from_number, 
-                        conversation_step='WAITING_DNI',
-                        client_data=client_data
-                    )
-                    await self.whatsapp_service.send_message(
-                        from_number, 
-                        "✅ Guardado. Ahora indícame tu **Cédula o RIF**:"
-                    )
+                    self.session_repository.create_or_update_session(from_number, conversation_step='WAITING_DNI', client_data=client_data)
+                    await self.whatsapp_service.send_message(from_number, "✅ Guardado. Ahora indícame tu **Cédula o RIF**:")
                     return {'success': True, 'action': 'saved_name'}
                 
-                # Estado: Esperando DNI
+                # B. Esperando DNI
                 if step == 'WAITING_DNI':
+                    # Validación omitida para RIFs alfanuméricos, pero checkeamos longitud mínima razonable
+                    if len(text) < 5 or len(text) > 15:
+                         await self.whatsapp_service.send_message(from_number, "⚠️ Por favor, envíame un **Cédula o RIF** válido para procesar tu nota de entrega.")
+                         return {'success': False, 'reason': 'invalid_dni_input'}
+
                     client_data['dni'] = text
-                    self.session_repository.create_or_update_session(
-                        from_number, 
-                        conversation_step='WAITING_ADDRESS',
-                        client_data=client_data
-                    )
-                    await self.whatsapp_service.send_message(
-                        from_number, 
-                        "👍 Listo. Por último, envíame tu **Dirección Fiscal / Entrega**:"
-                    )
+                    self.session_repository.create_or_update_session(from_number, conversation_step='WAITING_ADDRESS', client_data=client_data)
+                    await self.whatsapp_service.send_message(from_number, "👍 Listo. Por último, envíame tu **Dirección Fiscal / Entrega**:")
                     return {'success': True, 'action': 'saved_dni'}
                 
-                # Estado: Esperando Dirección -> Confirmación Final
+                # C. Esperando Dirección -> Confirmación Final
                 if step == 'WAITING_ADDRESS':
+                    if len(text) < 5:
+                         await self.whatsapp_service.send_message(from_number, "📍 Por favor, indícame la **Dirección** lo más detallada posible.")
+                         return {'success': False, 'reason': 'invalid_address_input'}
+
                     client_data['address'] = text
-                    self.session_repository.create_or_update_session(
-                        from_number, 
-                        conversation_step='WAITING_FINAL_CONFIRMATION',
-                        client_data=client_data
-                    )
+                    self.session_repository.create_or_update_session(from_number, conversation_step='WAITING_FINAL_CONFIRMATION', client_data=client_data)
                     
-                    # Generar resumen para confirmar
                     items = session.get('items', [])
                     total = sum(item['subtotal'] for item in items)
-                    
                     summary = "📝 **Confirma tus Datos**\n\n"
                     summary += f"👤 *Nombre:* {client_data.get('name')}\n"
                     summary += f"🆔 *CI/RIF:* {client_data.get('dni')}\n"
                     summary += f"📍 *Dirección:* {text}\n\n"
-                    
                     summary += "📦 *Tu Pedido:*\n"
-                    for item in items:
-                         summary += f"- {item['quantity']} {item['product_name']}\n"
+                    for item in items: summary += f"- {item['quantity']} {item['product_name']}\n"
                     summary += f"\n💰 *Total a registrar:* ${total:.2f}\n\n"
-                    
                     summary += "👉 Si todo es correcto, escribe **'SÍ'**.\n"
                     summary += "👉 Si hay algo que corregir, escribe **'NO'**."
-                    
                     await self.whatsapp_service.send_message(from_number, summary)
                     return {'success': True, 'action': 'request_final_confirmation'}
 
-                # Estado: Confirmación Final (Sin cambios)
+                # D. Confirmación Final
                 if step == 'WAITING_FINAL_CONFIRMATION':
                     confirm_yes = ['si', 'sí', 'ok', 'correcto', 'dale', 'confirmar']
                     confirm_no = ['no', 'corregir', 'mal', 'incorrecto', 'error']
@@ -224,8 +227,7 @@ class ProcessWhatsAppMessageUseCase:
                         await self.whatsapp_service.send_message(from_number, "⚠️ Por favor responde **SÍ** para finalizar o **NO** para corregir los datos.")
                         return {'success': False, 'action': 'ambiguous_response'}
 
-        # 7. Check: Checkout o Confirmación (Inicio del Wizard)
-        is_checkout_explicit = any(keyword in text_lower for keyword in checkout_keywords)
+        # 4. INICIO DE WIZARD (Solo si no hubo intención global arriba)
         is_confirmation = any(keyword == text_lower or text_lower.startswith(keyword + " ") for keyword in confirmation_keywords)
         
         if is_checkout_explicit or (is_confirmation and len(text.split()) < 4):
@@ -236,23 +238,14 @@ class ProcessWhatsAppMessageUseCase:
                      await self.whatsapp_service.send_message(from_number, "¡Excelente elección! 📝 Para generar tu recibo, por favor indícame tu **Nombre y Apellido**.")
                      return {'success': True, 'action': 'wizard_started'}
 
-        # 7. Check: Intención de Cotización
-        is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
-        
+        # 5. FALLBACK: Gemini AI (Solo si llegamos aquí sin match)
         try:
-            return await self._handle_add_items(from_number, text, message_id, is_quote_intent)
-
+            # Re-intento de parseo por si acaso fue algo muy sutil que no captó 'is_quote_intent'
+            return await self._handle_add_items(from_number, text, message_id, False)
         except ValueError:
-            if is_quote_intent:
-                msg = "🤔 Entiendo que quieres una cotización, pero no logré identificar el producto. ¿Podrías ser más específico? (Ej: '2 zapatos')"
-                await self.whatsapp_service.send_message(from_number, msg)
-                return {'success': False, 'reason': 'quote_intent_no_products'}
-            
-            # Fallback a Gemini AI
             from ...infrastructure.external.gemini_service import GeminiService
             gemini = GeminiService()
             response_text = await gemini.get_fallback_response(text)
-            
             await self.whatsapp_service.send_message(from_number, response_text)
             return {'success': True, 'action': 'fallback_ai'}
 
@@ -438,14 +431,27 @@ class ProcessWhatsAppMessageUseCase:
 
 
             
-            # Si no hay items, QuoteService debería haber lanzado ValueError,
-            # pero por seguridad verificamos
-            if not new_quote.items:
+    async def _handle_add_items(self, from_number: str, text: str, message_id: str, is_quote_intent: bool = False) -> Dict:
+        text_lower = text.lower()
+        delete_keywords = ['elimina', 'quita', 'borra', 'saca', 'remover', 'quitar']
+        replace_keywords = ['solo deja', 'reemplaza', 'sustituye', 'cambia por', 'coloca', 'pon', 'agrega']
+        
+        # ¿Es un comando de edición fuerte?
+        is_strong_command = any(kw in text_lower for kw in delete_keywords + ['solo deja', 'reemplaza'])
+
+        try:
+            # 1. Parsear con detalles (necesitamos matched_text para contexto)
+            result = self.quote_service.generate_quote_with_details(
+                text=text,
+                client_phone=f"+{from_number}",
+                fuzzy_threshold=70
+            )
+            parsed_items = result.get('parsed_items', [])
+            
+            if not parsed_items:
                  raise ValueError("No items parsed")
 
-            new_items = self._entity_to_dict(new_quote)['items']
-
-            # 2. Get existing session
+            # 2. Obtener sesión actual
             current_items = []
             if self.session_repository:
                 session = self.session_repository.get_session(from_number)
@@ -457,50 +463,94 @@ class ProcessWhatsAppMessageUseCase:
                     else:
                         current_items = session.get('items', [])
 
-            # 3. Merge items
-            merged_items = self._merge_items(current_items, new_items)
+            # 3. Lógica de "Limpieza y Re-procesamiento" si es comando fuerte
+            if is_strong_command:
+                logger.info(f"Comando fuerte detectado en: {text}. Reiniciando ítems para re-edición.")
+                # Reiniciamos la base para solo procesar lo que viene en este mensaje según su contexto
+                new_final_items = []
+                
+                # Para cada producto detectado, vemos si tiene un "quita" cerca
+                for item_detail in parsed_items:
+                    matched_val = item_detail['matched_text'].lower()
+                    # Buscar la posición del match para ver el contexto previo
+                    start_pos = text_lower.find(matched_val)
+                    # Miramos unos 20 caracteres antes del match
+                    context_before = text_lower[max(0, start_pos-25):start_pos]
+                    
+                    is_negated = any(kw in context_before for kw in delete_keywords)
+                    
+                    if not is_negated:
+                        # Si no está negado, lo agregamos como nuevo ítem
+                        product_data = self._entity_to_dict_item(item_detail)
+                        new_final_items.append(product_data)
+                    else:
+                        logger.info(f"Ítem negado por contexto: {matched_val}")
+                
+                # En comando fuerte, el carrito resultante es EXCLUSIVAMENTE lo no negado de este mensaje
+                merged_items = new_final_items
+                action_description = "Carrito Actualizado"
+            else:
+                # Lógica Normal: Mezclar ítems detectados con el carrito actual
+                new_items_to_add = [self._entity_to_dict_item(item) for item in parsed_items]
+                merged_items = self._merge_items(current_items, new_items_to_add)
+                action_description = "Productos Agregados"
 
-            # 4. Save session
+            # 4. Guardar sesión
             if self.session_repository:
-                self.session_repository.create_or_update_session(from_number, merged_items)
+                if not merged_items:
+                     self.session_repository.delete_session(from_number)
+                else:
+                     self.session_repository.create_or_update_session(from_number, merged_items)
 
-            # 5. Send Partial Summary
-            # Calculate partial total locally for speed
+            # 5. Respuesta al usuario
             total = sum(item['subtotal'] for item in merged_items)
+            response_text = f"✅ *{action_description}*\n\n"
             
-            response_text = "✅ *Productos Agregados*\n\n"
-            for item in new_items:
-                response_text += f"+ {item['quantity']} {item['product_name']}\n"
-            
-            response_text += f"\n🛒 *Total Acumulado:* ${total:.2f}\n"
-            response_text += "Envia más productos o escribe *'confirmar'* para finalizar."
+            # Mostrar que quedó en el carrito
+            if not merged_items:
+                response_text = "🗑️ Tu carrito ha sido vaciado."
+            else:
+                for item in merged_items:
+                    response_text += f"• {item['quantity']} {item['product_name']}\n"
+                
+                response_text += f"\n💰 *Total Actual:* ${total:.2f}\n"
+                response_text += "Escribe *'confirmar'* para finalizar o sigue agregando."
             
             await self.whatsapp_service.send_message(to=from_number, message=response_text)
             await self.whatsapp_service.mark_message_as_read(message_id)
             
-            return {'success': True, 'action': 'add_items', 'items_count': len(merged_items)}
+            return {'success': True, 'action': 'edit_cart', 'items_count': len(merged_items)}
 
         except ValueError:
             raise
 
+    def _entity_to_dict_item(self, parsed_item: Dict) -> Dict:
+        """Convierte item del parser a formato de sesión."""
+        product = parsed_item['product']
+        qty = parsed_item['quantity']
+        price = product['price']
+        return {
+            'product_name': product['name'],
+            'quantity': qty,
+            'unit_price': price,
+            'subtotal': price * qty,
+            'description': product.get('category', '')
+        }
+
     def _merge_items(self, current: List[Dict], new: List[Dict]) -> List[Dict]:
-        """Merge new items into current list, summing quantities."""
+        """Mezcla ítems sumando cantidades."""
         merged = {item['product_name']: item for item in current}
-        
         for item in new:
             name = item['product_name']
             if name in merged:
                 merged[name]['quantity'] += item['quantity']
-                merged[name]['subtotal'] += item['subtotal'] # Aprox, should recalc unit * qty
-                # Recalculate subtotal correctly
                 merged[name]['subtotal'] = merged[name]['quantity'] * merged[name]['unit_price']
             else:
                 merged[name] = item
-                
         return list(merged.values())
 
     def _entity_to_dict(self, quote) -> Dict:
-        """Helper to convert quote entity to dict for JSON serialization."""
+        """Convertir entidad Quote a dict."""
         return {
             'items': [
                 {
