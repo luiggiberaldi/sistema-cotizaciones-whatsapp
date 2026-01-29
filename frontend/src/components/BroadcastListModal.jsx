@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Check, X, Loader2, Search, Filter, Users } from 'lucide-react';
 import { customersAPI } from '../services/api';
 
-const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedPhones = [] }) => {
+const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = [] }) => {
     // Estados del Mensaje
     const [templateName, setTemplateName] = useState('hello_world');
     const [languageCode, setLanguageCode] = useState('es');
@@ -15,7 +15,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedPhones = [
     const [loadingCustomers, setLoadingCustomers] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [selectedPhones, setSelectedPhones] = useState(new Set(initialSelectedPhones));
+    const [selectedPhones, setSelectedPhones] = useState(new Set(initialSelectedClients.map(c => c.phone)));
 
     // Cargar clientes con filtros
     const fetchCustomers = useCallback(async () => {
@@ -28,8 +28,8 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedPhones = [
             setCustomers(data);
 
             // Si venimos de la tabla con selecciones previas, asegurarnos de que estén en el Set
-            if (initialSelectedPhones.length > 0 && selectedPhones.size === 0) {
-                setSelectedPhones(new Set(initialSelectedPhones));
+            if (initialSelectedClients.length > 0 && selectedPhones.size === 0) {
+                setSelectedPhones(new Set(initialSelectedClients.map(c => c.phone)));
             }
         } catch (error) {
             console.error('Error fetching customers:', error);
@@ -90,9 +90,11 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedPhones = [
             // Buscamos en Customers
             const clientsToSend = [...selectedPhones].map(phone => {
                 const customer = customers.find(c => c.phone_number === phone);
+                const initial = initialSelectedClients.find(c => c.phone === phone);
                 return {
-                    name: customer ? customer.full_name : 'Cliente',
-                    phone: phone
+                    name: customer ? customer.full_name : (initial ? initial.name : 'Cliente'),
+                    phone: phone,
+                    quote_id: initial ? (parseInt(initial.quote_id) || null) : null
                 };
             });
 

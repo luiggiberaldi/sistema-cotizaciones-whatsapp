@@ -63,12 +63,17 @@ function App() {
     };
 
     const handleSelectQuote = (quote) => {
+        // Asegurar que quote_id esté presente y sea un entero
+        const normalizedQuote = {
+            ...quote,
+            quote_id: parseInt(quote.quote_id || quote.id)
+        };
         setSelectedQuotes((prev) => {
-            const exists = prev.some((q) => q.id === quote.id);
+            const exists = prev.some((q) => q.id === normalizedQuote.id);
             if (exists) {
-                return prev.filter((q) => q.id !== quote.id);
+                return prev.filter((q) => q.id !== normalizedQuote.id);
             }
-            return [...prev, quote];
+            return [...prev, normalizedQuote];
         });
     };
 
@@ -338,7 +343,7 @@ function App() {
             <BroadcastListModal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
-                initialSelectedPhones={selectedQuotes.map(q => q.phone)}
+                initialSelectedClients={selectedQuotes}
                 onSend={handleSendBroadcast}
             />
         </div>
