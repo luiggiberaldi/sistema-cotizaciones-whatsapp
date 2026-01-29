@@ -55,12 +55,27 @@ class InvoiceService:
         pdf.ln(15)
         
         # --- Datos del Cliente ---
+        client_name = quote_data.get('client_name') or 'N/A'
+        client_dni = quote_data.get('client_dni') or 'N/A'
+        client_address = quote_data.get('client_address') or 'N/A'
+
         pdf.set_font("Arial", 'B', 12)
         pdf.cell(0, 10, "Datos del Cliente", ln=True)
-        pdf.set_font("Arial", '', 11)
-        pdf.cell(0, 5, f"Teléfono: {client_phone}", ln=True)
         
-        pdf.ln(10)
+        pdf.set_font("Arial", '', 11)
+        pdf.cell(30, 6, "Cliente:", 0, 0)
+        pdf.cell(0, 6, client_name, ln=True)
+        
+        pdf.cell(30, 6, "CI/RIF:", 0, 0)
+        pdf.cell(0, 6, client_dni, ln=True)
+        
+        pdf.cell(30, 6, "Teléfono:", 0, 0)
+        pdf.cell(0, 6, client_phone, ln=True)
+        
+        pdf.cell(30, 6, "Dirección:", 0, 0)
+        pdf.multi_cell(0, 6, client_address)
+        
+        pdf.ln(5)
         
         # --- Tabla de Items ---
         # Cabecera de tabla

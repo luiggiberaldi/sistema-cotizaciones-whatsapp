@@ -35,23 +35,33 @@ class SessionRepository:
             logger.error(f"Error al obtener sesión para {client_phone}: {e}")
             return None
 
-    def create_or_update_session(self, client_phone: str, items: List[Dict]) -> Dict:
+    def create_or_update_session(self, client_phone: str, items: Optional[List[Dict]] = None, conversation_step: Optional[str] = None, client_data: Optional[Dict] = None) -> Dict:
         """
         Crear o actualizar una sesión.
-        
-        Args:
-            client_phone: Número de teléfono
-            items: Lista de items acumulados
-            
-        Returns:
-            Sesión actualizada
         """
         try:
+            # Primero obtener datos existentes para no sobrescribir con None
+            current_session = self.get_session(client_phone)
+            
             data = {
                 "client_phone": client_phone,
-                "items": items,
                 "updated_at": datetime.utcnow().isoformat()
             }
+            
+            if items is not None:
+                data["items"] = items
+            elif current_session:
+                data["items"] = current_session.get("items", [])
+                
+            if conversation_step is not None:
+                data["conversation_step"] = conversation_step
+            elif current_session:
+                data["conversation_step"] = current_session.get("conversation_step", "shopping")
+                
+            if client_data is not None:
+                data["client_data"] = client_data
+            elif current_session:
+                data["client_data"] = current_session.get("client_data", {})
             
             # Upsert (insert or update)
             response = self.supabase.table(self.table_name)\

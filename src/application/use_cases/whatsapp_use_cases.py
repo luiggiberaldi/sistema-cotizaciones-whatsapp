@@ -95,43 +95,88 @@ class ProcessWhatsAppMessageUseCase:
 
         text_lower = text.lower()
 
-        # 2. Check: Checkout o Confirmación
-        # Si dice "Total" o "Confirmar" -> Checkout
-        # Si dice "Si" Y tiene sesión -> Checkout
+        # 2. Check: Session State Machine (Wizard de Datos)
+        if self.session_repository:
+            session = self.session_repository.get_session(from_number)
+            if session:
+                step = session.get('conversation_step', 'shopping')
+                client_data = session.get('client_data', {}) or {}
+                
+                # Estado: Esperando Nombre
+                if step == 'WAITING_NAME':
+                    client_data['name'] = text
+                    self.session_repository.create_or_update_session(
+                        from_number, 
+                        conversation_step='WAITING_DNI',
+                        client_data=client_data
+                    )
+                    await self.whatsapp_service.send_message(
+                        from_number, 
+                        "✅ Guardado. Ahora indícame tu **Cédula o RIF**:"
+                    )
+                    return {'success': True, 'action': 'saved_name'}
+                
+                # Estado: Esperando DNI
+                if step == 'WAITING_DNI':
+                    client_data['dni'] = text
+                    self.session_repository.create_or_update_session(
+                        from_number, 
+                        conversation_step='WAITING_ADDRESS',
+                        client_data=client_data
+                    )
+                    await self.whatsapp_service.send_message(
+                        from_number, 
+                        "👍 Listo. Por último, envíame tu **Dirección Fiscal / Entrega**:"
+                    )
+                    return {'success': True, 'action': 'saved_dni'}
+                
+                # Estado: Esperando Dirección -> Checkout Final
+                if step == 'WAITING_ADDRESS':
+                    client_data['address'] = text
+                    self.session_repository.create_or_update_session(
+                        from_number, 
+                        conversation_step='CONFIRMING', # Reset o final
+                        client_data=client_data
+                    )
+                    # Ejecutar checkout definitivo
+                    return await self._handle_checkout(from_number, message_id, customer, client_data)
+
+        # 3. Check: Checkout o Confirmación (Inicio del Wizard)
+        # Si dice "Total" o "Confirmar" -> Iniciar Recolección de Datos
         is_checkout_explicit = any(keyword in text_lower for keyword in checkout_keywords)
         is_confirmation = any(keyword == text_lower or text_lower.startswith(keyword + " ") for keyword in confirmation_keywords)
         
         if is_checkout_explicit or (is_confirmation and len(text.split()) < 4):
             if self.session_repository:
-                 # Verificar si realmente tiene sesión antes de asumir checkout
                  session = self.session_repository.get_session(from_number)
                  if session and session.get('items'):
-                     return await self._handle_checkout(from_number, message_id, customer)
+                     # INICIO WIZARD: Pedir Nombre
+                     self.session_repository.create_or_update_session(
+                         from_number, 
+                         conversation_step='WAITING_NAME'
+                     )
+                     await self.whatsapp_service.send_message(
+                        from_number, 
+                        "¡Excelente elección! 📝 Para generar tu recibo, por favor indícame tu **Nombre y Apellido**."
+                     )
+                     return {'success': True, 'action': 'wizard_started'}
 
-        # 3. Check: Saludo
-        # Si el texto es corto y parece saludo
+        # 4. Check: Saludo
         if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
             return await self._handle_greeting(from_number, message_id, customer)
 
-        # 4. Check: Intención de Cotización
+        # 5. Check: Intención de Cotización
         is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
         
-        # Intentar parsear items independientemente de la intención explícita
-        # (ej: "2 zapatos" no tiene keyword de cotización pero es una orden)
         try:
-            # Intentar generar cotización (parsing)
-            # Usamos una función auxiliar o el método existente modificando el manejo de error
             return await self._handle_add_items(from_number, text, message_id, is_quote_intent)
 
         except ValueError:
-            # Si falla el parsing
             if is_quote_intent:
-                # Caso: Quiere cotizar pero no se entendió qué
                 msg = "🤔 Entiendo que quieres una cotización, pero no logré identificar el producto. ¿Podrías ser más específico? (Ej: '2 zapatos')"
                 await self.whatsapp_service.send_message(from_number, msg)
                 return {'success': False, 'reason': 'quote_intent_no_products'}
             
-            # Caso: Desconocido
             msg = "disculpa, no entendí tu mensaje. ¿Quieres ver precios o hacer un pedido? Intenta escribir algo como 'quiero 2 camisas'."
             await self.whatsapp_service.send_message(from_number, msg)
             return {'success': False, 'reason': 'unknown_intent'}
@@ -178,7 +223,7 @@ class ProcessWhatsAppMessageUseCase:
         return {'success': True, 'action': 'greeting'}
 
 
-    async def _handle_checkout(self, from_number: str, message_id: str, customer: Optional[Dict] = None) -> Dict:
+    async def _handle_checkout(self, from_number: str, message_id: str, customer: Optional[Dict] = None, client_data: Dict = {}) -> Dict:
         session = self.session_repository.get_session(from_number)
         if not session or not session.get('items'):
             await self.whatsapp_service.send_message(
@@ -190,18 +235,7 @@ class ProcessWhatsAppMessageUseCase:
         # Create final quote from session items
         items = session['items']
         
-        # Calculate total
-        # Re-verify prices in case they changed? For now, trust session or re-fetch?
-        # Better to re-create Quote objects to valid.
-        # But QuoteService expects text or exact items. 
-        # Let's reconstruct text or manually create Quote object.
-        # Manual Quote creation seems safer.
-        
         try:
-            # Re-validate items through quote service to get fresh prices/objects
-            # Or manually construct if we trust session data.
-            # Let's manually construct to keep it simple, assuming session has valid data.
-            
             quote_text = ", ".join([f"{item['quantity']} {item['product_name']}" for item in items])
             logger.info(f"Generando cotización final para: {quote_text}")
             
@@ -216,6 +250,13 @@ class ProcessWhatsAppMessageUseCase:
             # Asociar cliente si existe
             if customer:
                 quote.customer_id = customer.get('id')
+                
+            # --- ASIGNAR DATOS DEL WIZARD ---
+            quote.client_name = client_data.get('name')
+            quote.client_dni = client_data.get('dni')
+            quote.client_address = client_data.get('address')
+            if quote.client_name:
+                 quote.notes += f" | Cliente: {quote.client_name} - {quote.client_dni}"
 
             # Save to DB
             created_quote = await self.quote_repository.create(quote)
@@ -276,6 +317,15 @@ class ProcessWhatsAppMessageUseCase:
                 fuzzy_threshold=70
             )
             new_quote = result['quote']
+
+            # Guardar cotización en base de datos (Persistencia de auditoría y dashboard)
+            try:
+                logger.info(f"Guardando cotización parcial en base de datos para {from_number}...")
+                await self.quote_repository.create(new_quote)
+            except Exception as db_err:
+                logger.error(f"Error persistiendo cotización: {db_err}")
+                # No bloqueamos el flujo de WhatsApp si falla la BD, pero lo registramos
+
             
             # Si no hay items, QuoteService debería haber lanzado ValueError,
             # pero por seguridad verificamos
