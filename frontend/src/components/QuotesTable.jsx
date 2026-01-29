@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CheckSquare, Square } from 'lucide-react';
+import QuoteDetailModal from './QuoteDetailModal';
 
 const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
+    const [selectedQuoteDetail, setSelectedQuoteDetail] = useState(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
     const getStatusBadge = (status) => {
         const statusConfig = {
             draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Borrador' },
@@ -41,7 +45,8 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
         return selectedQuotes.some((quote) => quote.id === id);
     };
 
-    const handleToggleSelect = (quote) => {
+    const handleToggleSelect = (e, quote) => {
+        e.stopPropagation(); // Stop row click
         const client = {
             id: quote.id, // For compatibility with isSelected
             name: quote.client_name || `Cliente #${quote.id}`,
@@ -50,6 +55,11 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
             total: quote.total
         };
         onSelectQuote(client);
+    };
+
+    const handleRowClick = (quote) => {
+        setSelectedQuoteDetail(quote);
+        setIsDetailModalOpen(true);
     };
 
     if (!quotes || quotes.length === 0) {
@@ -93,12 +103,13 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
                         {quotes.map((quote) => (
                             <tr
                                 key={quote.id}
-                                className={`hover:bg-gray-50 transition ${isSelected(quote.id) ? 'bg-primary-50' : ''
+                                onClick={() => handleRowClick(quote)}
+                                className={`hover:bg-gray-50 transition cursor-pointer ${isSelected(quote.id) ? 'bg-primary-50' : ''
                                     }`}
                             >
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <button
-                                        onClick={() => handleToggleSelect(quote)}
+                                        onClick={(e) => handleToggleSelect(e, quote)}
                                         className="text-primary-600 hover:text-primary-800 transition"
                                     >
                                         {isSelected(quote.id) ? (
@@ -139,6 +150,12 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
                     </tbody>
                 </table>
             </div>
+
+            <QuoteDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                quote={selectedQuoteDetail}
+            />
         </div>
     );
 };

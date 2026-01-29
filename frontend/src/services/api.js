@@ -52,6 +52,9 @@ export const quotesAPI = {
         return response.data;
     },
 
+    // Generar PDF de cotización
+    generatePdf: (id) => api.post(`/quotes/${id}/generate-pdf`, {}, { responseType: 'blob' }),
+
     // Eliminar cotización
     delete: async (id) => {
         const response = await api.delete(`/quotes/${id}`);

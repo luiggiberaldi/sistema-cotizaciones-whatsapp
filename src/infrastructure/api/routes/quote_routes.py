@@ -38,6 +38,11 @@ update_quote_use_case = UpdateQuoteUseCase(repository)
 delete_quote_use_case = DeleteQuoteUseCase(repository)
 get_quotes_by_phone_use_case = GetQuotesByPhoneUseCase(repository)
 
+# Inicializar servicios adicionales
+from ....infrastructure.services.invoice_service import InvoiceService
+from fastapi.responses import FileResponse
+invoice_service = InvoiceService()
+
 
 def _schema_to_entity(schema: QuoteCreateSchema) -> Quote:
     """Convertir schema a entidad de dominio."""
@@ -231,6 +236,59 @@ async def delete_quote(quote_id: int):
         )
     
     return None
+
+
+@router.post(
+    "/{quote_id}/generate-pdf",
+    summary="Generar PDF de Cotización",
+    description="Genera y devuelve el archivo PDF de la cotización."
+)
+async def generate_quote_pdf(quote_id: int):
+    """Generar y descargar PDF de la cotización."""
+    try:
+        quote = await get_quote_use_case.execute(quote_id)
+        if not quote:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Cotización con ID {quote_id} no encontrada"
+            )
+            
+        # Preparar datos para el servicio de facturas
+        # Convertimos la entidad a dict para el servicio
+        quote_data = {
+            'id': quote.id,
+            'client_phone': quote.client_phone,
+            'client_name': quote.client_name,
+            'client_dni': quote.client_dni,
+            'client_address': quote.client_address,
+            'total': quote.total,
+            'items': [
+                {
+                    'product_name': item.product_name,
+                    'quantity': item.quantity,
+                    'unit_price': item.unit_price,
+                    'subtotal': item.subtotal
+                }
+                for item in quote.items
+            ]
+        }
+        
+        pdf_path = invoice_service.generate_invoice_pdf(quote_data)
+        
+        return FileResponse(
+            path=pdf_path,
+            filename=f"Cotizacion_{quote.id}.pdf",
+            media_type='application/pdf'
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generando PDF: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generando PDF: {str(e)}"
+        )
 
 
 @router.get(
