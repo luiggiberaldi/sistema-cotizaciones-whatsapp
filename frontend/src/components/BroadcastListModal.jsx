@@ -245,18 +245,32 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                             <h3 className="text-lg font-bold text-gray-800">Mensaje Automático</h3>
 
                             {/* Template */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plantilla de Meta</label>
-                                <select
-                                    value={templateName}
-                                    onChange={(e) => setTemplateName(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
-                                    disabled={sending}
-                                >
-                                    <option value="hello_world">👋 Hello World</option>
-                                    <option value="quote_notification">📄 Notificación Cotización</option>
-                                    <option value="payment_reminder">💰 Recordatorio de Pago</option>
-                                </select>
+                            <div className="flex gap-3">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plantilla de Meta</label>
+                                    <select
+                                        value={templateName}
+                                        onChange={(e) => setTemplateName(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
+                                        disabled={sending}
+                                    >
+                                        <option value="hello_world">👋 Hello World</option>
+                                        <option value="quote_notification">📄 Notificación Cotización</option>
+                                        <option value="payment_reminder">💰 Recordatorio de Pago</option>
+                                    </select>
+                                </div>
+                                <div className="w-24">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Idioma</label>
+                                    <select
+                                        value={languageCode}
+                                        onChange={(e) => setLanguageCode(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
+                                        disabled={sending}
+                                    >
+                                        <option value="es">ES</option>
+                                        <option value="en_US">EN (US)</option>
+                                    </select>
+                                </div>
                             </div>
 
                             {/* Parámetros */}
