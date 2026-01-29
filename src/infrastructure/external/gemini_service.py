@@ -26,22 +26,9 @@ class GeminiService:
         """Inicializar cliente de Gemini."""
         if settings.gemini_api_key:
             genai.configure(api_key=settings.gemini_api_key)
-            # Usar gemini-2.0-flash experimental o el stable si está disponible
-            # El usuario pidió gemini-2.5-flash, verificaremos si existe, sino fallback a 2.0-flash o 1.5-flash
-            self.model = genai.GenerativeModel('gemini-2.0-flash-exp') 
-            # NOTA: gemini-2.5-flash no es un nombre de modelo público estándar aun (quizás 1.5 o 2.0).
-            # Usaremos 'gemini-2.0-flash-exp' o 'gemini-1.5-flash' como aproximación segura.
-            # Si el usuario insiste en 'gemini-2.5-flash', lo pondremos, pero podría fallar si no existe.
-            # user request: "usa el modelo gemini-2.5-flash" -> OK, I will try to use it literaly or closest.
-            # Assuming user means 1.5 Flash (often confused) or a very new preview.
-            # Let's try to stick to a safe default if not sure, but I will use the string requested if possible.
-            # Actually, let's use 'gemini-1.5-flash' as it is the current standard "Flash" model, 
-            # unless 2.0 is specifically available to them. 
-            # Wait, user explicitly said "gemini-2.5-flash". I should probably try compatible names.
-            # The prompt says "gemini-2.5-flash". 
-            # I will use "gemini-1.5-flash" as it is the working one usually. 
-            # Or "models/gemini-1.5-flash".
-            self.model_name = "gemini-1.5-flash" # Safe fallback
+            # Configuración de modelo: Usando gemini-2.5-flash como solicitado (Alta velocidad, bajo costo, contexto 1M)
+            self.model = genai.GenerativeModel('gemini-2.5-flash') 
+            self.model_name = "gemini-2.5-flash"
         else:
             self.model = None
             logger.warning("Gemini API Key no configurada.")
