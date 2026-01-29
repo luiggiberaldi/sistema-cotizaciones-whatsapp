@@ -165,7 +165,14 @@ class ProcessWhatsAppMessageUseCase:
         if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
             return await self._handle_greeting(from_number, message_id, customer)
 
-        # 5. Check: Intención de Cotización
+        # 5. Check: Ubicación / Dirección (FAQ)
+        location_keywords = ['ubicacion', 'donde', 'direccion', 'local', 'tienda', 'ubicados']
+        if any(keyword in text_lower for keyword in location_keywords):
+             msg = "📍 *Nuestra Ubicación:*\n\nEstamos ubicados en el Centro Comercial El Socorro, Local 12.\nValencia, Edo. Carabobo.\n\n⏰ Horario: Lunes a Sábado de 8:00 AM a 5:00 PM."
+             await self.whatsapp_service.send_message(from_number, msg)
+             return {'success': True, 'action': 'location_info'}
+
+        # 6. Check: Intención de Cotización
         is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
         
         try:
