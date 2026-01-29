@@ -74,21 +74,71 @@ const CustomersPage = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 className="text-2xl font-bold text-gray-800">Cartera de Clientes</h2>
-                <div className="relative">
+                <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                     <input
                         type="text"
                         placeholder="Buscar por nombre o teléfono..."
-                        className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 w-64"
+                        className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 w-full"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
 
-            <div className="bg-white shadow rounded-lg overflow-hidden">
+            {/* Vista Mobile: Cards */}
+            <div className="grid grid-cols-1 gap-4 sm:hidden">
+                {filteredCustomers.map((customer) => (
+                    <div key={customer.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 relative">
+                        <button
+                            onClick={() => onClickDelete(customer)}
+                            className="absolute top-2 right-2 text-gray-400 hover:text-red-600 p-2 transition-colors"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center shrink-0">
+                                <User className="text-primary-600" size={24} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="font-bold text-gray-900 truncate text-lg leading-tight">
+                                    {customer.full_name}
+                                </p>
+                                <p className="text-sm text-gray-500 font-medium">
+                                    ID: {customer.dni_rif || 'S/I'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2 border-t pt-3">
+                            <div className="flex items-center text-sm text-gray-600 font-medium">
+                                <div className="bg-gray-100 p-1.5 rounded-lg mr-2">
+                                    <Phone size={14} className="text-gray-500" />
+                                </div>
+                                {customer.phone_number}
+                            </div>
+                            <div className="flex items-start text-sm text-gray-600">
+                                <div className="bg-gray-100 p-1.5 rounded-lg mr-2 shrink-0">
+                                    <MapPin size={14} className="text-gray-500" />
+                                </div>
+                                <span className="leading-relaxed">
+                                    {customer.main_address || 'Sin dirección registrada'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-1 pt-2 border-t border-dashed">
+                            Cliente desde: {new Date(customer.created_at).toLocaleDateString()}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Vista Desktop: Table */}
+            <div className="hidden sm:block bg-white shadow rounded-lg overflow-hidden border border-gray-100">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -101,31 +151,31 @@ const CustomersPage = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredCustomers.map((customer) => (
-                            <tr key={customer.id} className="hover:bg-gray-50">
+                            <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center">
                                         <div className="flex-shrink-0 h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
                                             <User className="text-primary-600" size={20} />
                                         </div>
                                         <div className="ml-4">
-                                            <div className="text-sm font-medium text-gray-900">{customer.full_name}</div>
-                                            <div className="text-sm text-gray-500">{customer.dni_rif || 'S/I'}</div>
+                                            <div className="text-sm font-bold text-gray-900">{customer.full_name}</div>
+                                            <div className="text-xs text-gray-500">{customer.dni_rif || 'S/I'}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center text-sm text-gray-500">
-                                        <Phone size={16} className="mr-2" />
+                                    <div className="flex items-center text-sm text-gray-700 font-medium">
+                                        <Phone size={16} className="mr-2 text-gray-400" />
                                         {customer.phone_number}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="flex items-center text-sm text-gray-500">
-                                        <MapPin size={16} className="mr-2 flex-shrink-0" />
+                                    <div className="flex items-center text-sm text-gray-600">
+                                        <MapPin size={16} className="mr-2 flex-shrink-0 text-gray-400" />
                                         <span className="truncate max-w-xs">{customer.main_address || '-'}</span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
                                     {new Date(customer.created_at).toLocaleDateString()}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -141,10 +191,14 @@ const CustomersPage = () => {
                         ))}
                     </tbody>
                 </table>
-                {filteredCustomers.length === 0 && !loading && (
-                    <div className="text-center py-8 text-gray-500">No se encontraron clientes.</div>
-                )}
             </div>
+
+            {filteredCustomers.length === 0 && !loading && (
+                <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-100">
+                    <User size={48} className="mx-auto text-gray-200 mb-3" />
+                    <p className="text-gray-500 text-lg font-medium">No se encontraron clientes.</p>
+                </div>
+            )}
 
             <ConfirmationModal
                 isOpen={deleteModalOpen}
