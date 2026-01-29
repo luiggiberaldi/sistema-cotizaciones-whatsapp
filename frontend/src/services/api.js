@@ -2,9 +2,9 @@ import axios from 'axios';
 import { supabase } from '../lib/supabaseClient';
 
 // Configuración de URL base de la API
-// En desarrollo: usa proxy local (/api/v1)
-// En producción: usa variable de entorno VITE_API_URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+// Forzamos el uso del proxy en desarrollo
+const API_BASE_URL = '/api/v1';
+// const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -64,6 +64,25 @@ export const broadcastAPI = {
         });
         return response.data;
     },
+};
+
+export const productsAPI = {
+    getAll: async () => {
+        const response = await api.get('/products/');
+        return response.data;
+    },
+    create: async (product) => {
+        const response = await api.post('/products/', product);
+        return response.data;
+    },
+    update: async (id, product) => {
+        const response = await api.put(`/products/${id}`, product);
+        return response.data;
+    },
+    delete: async (id) => {
+        const response = await api.delete(`/products/${id}`);
+        return response.data;
+    }
 };
 
 export default api;

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Crear router
 router = APIRouter(prefix="/webhook", tags=["webhook"])
-
+from ....infrastructure.database.customer_repository import CustomerRepository
 from ....infrastructure.database.session_repository import SessionRepository
 from ....infrastructure.services.invoice_service import InvoiceService
 from ....infrastructure.services.storage_service import StorageService
@@ -29,6 +29,7 @@ product_repository = ProductRepository(supabase)
 quote_service = QuoteService(product_repository)
 quote_repository = SupabaseQuoteRepository()
 session_repository = SessionRepository(supabase)
+customer_repository = CustomerRepository(supabase)
 invoice_service = InvoiceService()
 storage_service = StorageService(supabase)
 whatsapp_service = WhatsAppService()
@@ -42,7 +43,8 @@ process_message_use_case = ProcessWhatsAppMessageUseCase(
     retry_queue=retry_queue,
     session_repository=session_repository,
     invoice_service=invoice_service,
-    storage_service=storage_service
+    storage_service=storage_service,
+    customer_repository=customer_repository
 )
 
 retry_messages_use_case = RetryFailedMessagesUseCase(

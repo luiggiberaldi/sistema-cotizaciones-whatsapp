@@ -104,6 +104,10 @@ class Quote(StrictBaseModel):
         max_length=1000,
         description="Notas adicionales sobre la cotización"
     )
+    customer_id: Optional[str] = Field(
+        None,
+        description="ID del cliente asociado (UUID)"
+    )
     
     @field_validator('client_phone')
     @classmethod

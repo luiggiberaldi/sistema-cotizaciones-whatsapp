@@ -10,6 +10,7 @@ from ...domain.repositories import QuoteRepository
 from ...infrastructure.external import WhatsAppService, RetryQueue
 from ...infrastructure.services.invoice_service import InvoiceService
 from ...infrastructure.services.storage_service import StorageService
+from ...infrastructure.database.customer_repository import CustomerRepository
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,8 @@ class ProcessWhatsAppMessageUseCase:
         retry_queue: RetryQueue,
         session_repository: Optional['SessionRepository'] = None,
         invoice_service: Optional[InvoiceService] = None,
-        storage_service: Optional[StorageService] = None
+        storage_service: Optional[StorageService] = None,
+        customer_repository: Optional[CustomerRepository] = None
     ):
         self.quote_service = quote_service
         self.quote_repository = quote_repository
@@ -44,6 +46,7 @@ class ProcessWhatsAppMessageUseCase:
         self.session_repository = session_repository
         self.invoice_service = invoice_service or InvoiceService()
         self.storage_service = storage_service or StorageService()
+        self.customer_repository = customer_repository
 
     async def execute(self, message_data: Dict) -> Dict:
         from_number = message_data.get('from')
@@ -65,28 +68,50 @@ class ProcessWhatsAppMessageUseCase:
         from_number = message_data.get('from')
         text = message_data.get('text', '').strip()
         message_id = message_data.get('message_id')
+        sender_name = message_data.get('name')
         
-        logger.info(f"Procesando mensaje de {from_number}: {text}")
+        logger.info(f"Procesando mensaje de {from_number} ({sender_name or 'Desconocido'}): {text}")
+
+        # --- Gestión de Clientes ---
+        customer = None
+        if self.customer_repository:
+            # Buscar cliente existente
+            customer = self.customer_repository.get_by_phone(from_number)
+            
+            if not customer:
+                # Registrar nuevo cliente
+                logger.info(f"Registrando nuevo cliente: {from_number}")
+                customer = self.customer_repository.create(from_number, sender_name)
+            elif sender_name and not customer.get('name'):
+                 # Actualizar nombre si no lo teníamos
+                 self.customer_repository.update_name(from_number, sender_name)
+                 customer['name'] = sender_name
 
         # 1. Definir palabras clave
         checkout_keywords = ['confirmar', 'listo', 'finalizar', 'comprar', 'pagar', 'fin', 'total']
+        confirmation_keywords = ['si', 'sí', 'ok', 'claro', 'dale', 'bueno']
         greeting_keywords = ['hola', 'buen', 'buenas', 'que tal', 'hey', 'hello', 'hi', 'saludos']
         quote_keywords = ['cotiz', 'precio', 'cuanto', 'quiero', 'necesito', 'tienes', 'dame', 'busca', 'valor', 'costo']
 
         text_lower = text.lower()
 
-        # 2. Check: Checkout (prioridad si hay sesión)
-        is_checkout = any(keyword in text_lower for keyword in checkout_keywords)
-        if is_checkout and self.session_repository:
-             # Verificar si realmente tiene sesión antes de asumir checkout
-             session = self.session_repository.get_session(from_number)
-             if session and session.get('items'):
-                 return await self._handle_checkout(from_number, message_id)
+        # 2. Check: Checkout o Confirmación
+        # Si dice "Total" o "Confirmar" -> Checkout
+        # Si dice "Si" Y tiene sesión -> Checkout
+        is_checkout_explicit = any(keyword in text_lower for keyword in checkout_keywords)
+        is_confirmation = any(keyword == text_lower or text_lower.startswith(keyword + " ") for keyword in confirmation_keywords)
+        
+        if is_checkout_explicit or (is_confirmation and len(text.split()) < 4):
+            if self.session_repository:
+                 # Verificar si realmente tiene sesión antes de asumir checkout
+                 session = self.session_repository.get_session(from_number)
+                 if session and session.get('items'):
+                     return await self._handle_checkout(from_number, message_id, customer)
 
         # 3. Check: Saludo
         # Si el texto es corto y parece saludo
         if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
-            return await self._handle_greeting(from_number, message_id)
+            return await self._handle_greeting(from_number, message_id, customer)
 
         # 4. Check: Intención de Cotización
         is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
@@ -111,14 +136,20 @@ class ProcessWhatsAppMessageUseCase:
             await self.whatsapp_service.send_message(from_number, msg)
             return {'success': False, 'reason': 'unknown_intent'}
 
-    async def _handle_greeting(self, from_number: str, message_id: str) -> Dict:
-        msg = "¡Hola! 👋 Bienvenido a nuestro sistema de cotizaciones.\n\nPuedes pedirme productos escribiendo algo como: *\"Quiero 2 zapatos y 1 camisa\"*."
+    async def _handle_greeting(self, from_number: str, message_id: str, customer: Optional[Dict] = None) -> Dict:
+        greeting_name = ""
+        if customer and customer.get('name'):
+            # Usar primer nombre
+            first_name = customer['name'].split()[0]
+            greeting_name = f" {first_name}"
+            
+        msg = f"¡Hola{greeting_name}! 👋 Bienvenido a nuestro sistema de cotizaciones.\n\nPuedes pedirme productos escribiendo algo como: *\"Quiero 2 zapatos y 1 camisa\"*."
         await self.whatsapp_service.send_message(from_number, msg)
         await self.whatsapp_service.mark_message_as_read(message_id)
         return {'success': True, 'action': 'greeting'}
 
 
-    async def _handle_checkout(self, from_number: str, message_id: str) -> Dict:
+    async def _handle_checkout(self, from_number: str, message_id: str, customer: Optional[Dict] = None) -> Dict:
         session = self.session_repository.get_session(from_number)
         if not session or not session.get('items'):
             await self.whatsapp_service.send_message(
@@ -152,6 +183,10 @@ class ProcessWhatsAppMessageUseCase:
                 notes="Cotización finalizada (Session)"
             )
             quote = result['quote']
+            
+            # Asociar cliente si existe
+            if customer:
+                quote.customer_id = customer.get('id')
 
             # Save to DB
             created_quote = await self.quote_repository.create(quote)
@@ -171,22 +206,30 @@ class ProcessWhatsAppMessageUseCase:
             try:
                 pdf_path = self.invoice_service.generate_invoice_pdf(quote_data)
                 
-                # Nombre de archivo en storage (ej: quotes/584121234567/quote_123.pdf)
-                storage_path = f"quotes/{from_number}/{os.path.basename(pdf_path)}"
-                
-                # IMPORTANTE: Asegurarnos de importar os si se usa basename
-                # Pero ya lo importamos o lo hacemos arriba
+                # Nombre de archivo único: quotes/{phone}/quote_{id}_{timestamp}.pdf
+                timestamp = int(datetime.now().timestamp())
+                filename = f"quote_{created_quote.id}_{timestamp}.pdf"
+                storage_path = f"quotes/{from_number}/{filename}"
                 
                 public_url = await self.storage_service.upload_pdf(pdf_path, storage_path)
                 
                 if public_url:
-                    # Enviar mensaje con el link
-                    link_msg = f"📄 *Tu cotización en PDF:* {public_url}\n\nPuedes descargarla para tus registros."
-                    await self.whatsapp_service.send_message(to=from_number, message=link_msg)
+                    # Enviar Documento PDF
+                    await self.whatsapp_service.send_document(
+                        to=from_number,
+                        link=public_url,
+                        caption=f"Aquí tienes tu cotización formal 📄 (N° {created_quote.id})"
+                    )
+                else:
+                    # Fallback si no se pudo subir
+                    await self.whatsapp_service.send_message(to=from_number, message="Se generó la cotización pero hubo un problema enviando el PDF.")
                 
             except Exception as pdf_err:
                 logger.error(f"Error generando/subiendo PDF: {pdf_err}")
                 # No fallar el checkout si el PDF falla, ya enviamos el resumen por WhatsApp
+                await self.whatsapp_service.send_message(to=from_number, message="Cotización guardada exitosamente. Hubo un error técnico generando el PDF.")
+                
+
             
             return {'success': True, 'action': 'checkout', 'quote_id': created_quote.id}
 

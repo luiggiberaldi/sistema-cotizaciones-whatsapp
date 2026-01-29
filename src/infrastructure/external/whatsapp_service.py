@@ -112,6 +112,49 @@ class WhatsAppService:
         
         return await self.send_message(to, message, preview_url=False)
     
+    async def send_document(
+        self,
+        to: str,
+        link: str,
+        caption: Optional[str] = None
+    ) -> Dict:
+        """
+        Enviar documento (PDF) por WhatsApp.
+        
+        Args:
+            to: Número de teléfono
+            link: URL pública del documento (PDF)
+            caption: Texto opcional
+            
+        Returns:
+            Respuesta de la API
+        """
+        url = f"{self.base_url}/{self.phone_number_id}/messages"
+        
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            "type": "document",
+            "document": {
+                "link": link,
+                "caption": caption or ""
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            result = response.json()
+            logger.info(f"Documento enviado a {to}: {result}")
+            return result
+            
     def _format_quote_message(self, quote_data: Dict) -> str:
         """
         Formatear cotización como mensaje de texto.
@@ -175,8 +218,15 @@ class WhatsAppService:
                 logger.info(f"Mensaje no es de texto: {message.get('type')}")
                 return None
             
+            # Intentar extraer nombre del contacto
+            contacts = value.get('contacts', [])
+            sender_name = None
+            if contacts:
+                sender_name = contacts[0].get('profile', {}).get('name')
+
             return {
                 'from': message.get('from'),
+                'name': sender_name,
                 'message_id': message.get('id'),
                 'timestamp': message.get('timestamp'),
                 'text': message.get('text', {}).get('body', '')
