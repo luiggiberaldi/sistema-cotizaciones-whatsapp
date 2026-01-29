@@ -2,6 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Check, X, Loader2, Search, Filter, Users } from 'lucide-react';
 import { customersAPI } from '../services/api';
 
+const normalizePhone = (phone) => {
+    if (!phone) return '';
+    // Eliminar +, espacios, guiones y cualquier carácter no numérico
+    return phone.toString().replace(/[+\s-]/g, '');
+};
+
 const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = [] }) => {
     // Estados del Mensaje
     const [templateName, setTemplateName] = useState('hello_world');
@@ -15,7 +21,9 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
     const [loadingCustomers, setLoadingCustomers] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [selectedPhones, setSelectedPhones] = useState(new Set(initialSelectedClients.map(c => c.phone)));
+    const [selectedPhones, setSelectedPhones] = useState(new Set(
+        initialSelectedClients.map(c => normalizePhone(c.phone))
+    ));
 
     // Cargar clientes con filtros
     const fetchCustomers = useCallback(async () => {
@@ -29,7 +37,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
 
             // Si venimos de la tabla con selecciones previas, asegurarnos de que estén en el Set
             if (initialSelectedClients.length > 0 && selectedPhones.size === 0) {
-                setSelectedPhones(new Set(initialSelectedClients.map(c => c.phone)));
+                setSelectedPhones(new Set(initialSelectedClients.map(c => normalizePhone(c.phone))));
             }
         } catch (error) {
             console.error('Error fetching customers:', error);
@@ -46,28 +54,29 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
 
     // Manejo de Selección
     const toggleCustomer = (phone) => {
+        const normalized = normalizePhone(phone);
         const newSelected = new Set(selectedPhones);
-        if (newSelected.has(phone)) {
-            newSelected.delete(phone);
+        if (newSelected.has(normalized)) {
+            newSelected.delete(normalized);
         } else {
-            newSelected.add(phone);
+            newSelected.add(normalized);
         }
         setSelectedPhones(newSelected);
     };
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            const allPhones = customers.map(c => c.phone_number);
+            const allPhones = customers.map(c => normalizePhone(c.phone_number));
             setSelectedPhones(new Set([...selectedPhones, ...allPhones]));
         } else {
             // Deseleccionar solo los que están actualmente en la lista filtrada
-            const currentPhones = new Set(customers.map(c => c.phone_number));
+            const currentPhones = new Set(customers.map(c => normalizePhone(c.phone_number)));
             const newSelected = new Set([...selectedPhones].filter(p => !currentPhones.has(p)));
             setSelectedPhones(newSelected);
         }
     };
 
-    const isAllSelected = customers.length > 0 && customers.every(c => selectedPhones.has(c.phone_number));
+    const isAllSelected = customers.length > 0 && customers.every(c => selectedPhones.has(normalizePhone(c.phone_number)));
 
     const handleSend = async () => {
         if (selectedPhones.size === 0) return;
@@ -88,9 +97,10 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
 
             // Convertir Set de teléfonos a lista de objetos con name y phone
             // Buscamos en Customers
+            // Convertir Set de teléfonos a lista de objetos con name y phone
             const clientsToSend = [...selectedPhones].map(phone => {
-                const customer = customers.find(c => c.phone_number === phone);
-                const initial = initialSelectedClients.find(c => c.phone === phone);
+                const customer = customers.find(c => normalizePhone(c.phone_number) === phone);
+                const initial = initialSelectedClients.find(c => normalizePhone(c.phone) === phone);
                 return {
                     name: customer ? customer.full_name : (initial ? initial.name : 'Cliente'),
                     phone: phone,
@@ -209,7 +219,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={selectedPhones.has(customer.phone_number)}
+                                                checked={selectedPhones.has(normalizePhone(customer.phone_number))}
                                                 onChange={() => toggleCustomer(customer.phone_number)}
                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                             />
@@ -219,7 +229,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                                 </div>
                                                 <p className="text-xs sm:text-sm text-gray-500 font-medium">{customer.phone_number}</p>
                                             </div>
-                                            {selectedPhones.has(customer.phone_number) && (
+                                            {selectedPhones.has(normalizePhone(customer.phone_number)) && (
                                                 <Check className="text-primary-600" size={20} />
                                             )}
                                         </label>
