@@ -135,22 +135,22 @@ const BusinessInfoPage = () => {
 
                 {/* Sección Logística */}
                 <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                         <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
                             <Truck size={20} className="text-green-500" />
                             Logística y Envíos
                         </h3>
                         {/* Master Switch */}
-                        <div className="flex items-center">
-                            <label className="relative inline-flex items-center cursor-pointer">
+                        <div className="flex items-center bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 w-full sm:w-auto">
+                            <label className="relative inline-flex items-center cursor-pointer w-full justify-between sm:justify-start">
                                 <input
                                     type="checkbox"
                                     className="sr-only peer"
                                     checked={info.has_delivery !== 'false'}
                                     onChange={(e) => handleChange('has_delivery', e.target.checked ? 'true' : 'false')}
                                 />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                                <span className="ml-3 text-sm font-medium text-gray-700">
+                                <div className="min-w-[44px] w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                <span className="ml-3 text-sm font-bold text-gray-700 whitespace-nowrap">
                                     {info.has_delivery !== 'false' ? 'Delivery ACTIVO' : 'Delivery INACTIVO'}
                                 </span>
                             </label>
@@ -175,7 +175,7 @@ const BusinessInfoPage = () => {
                                     type="text"
                                     value={info.delivery_precio || ''}
                                     onChange={(e) => handleChange('delivery_precio', e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all text-sm font-medium"
                                     placeholder="Ej: Desde $3 dependiendo la zona"
                                 />
                             </div>

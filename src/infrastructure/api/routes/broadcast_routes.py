@@ -2,7 +2,7 @@
 Endpoints para envío masivo de mensajes (Broadcast).
 """
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -24,7 +24,7 @@ class ClientInfo(StrictBaseModel):
     """Información del cliente para broadcast."""
     phone: str = Field(..., description="Número de teléfono del cliente")
     name: str = Field(..., description="Nombre del cliente")
-    quote_id: int = Field(None, description="ID de cotización asociada")
+    quote_id: Optional[int] = Field(None, description="ID de cotización asociada")
 
 
 class BroadcastTemplateRequest(StrictBaseModel):
