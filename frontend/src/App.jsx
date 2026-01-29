@@ -5,8 +5,9 @@ import QuotesTable from './components/QuotesTable';
 import BroadcastListModal from './components/BroadcastListModal';
 import ProductManagementPage from './components/ProductManagementPage';
 import BusinessInfoPage from './components/BusinessInfoPage';
+import CustomersPage from './components/CustomersPage';
 import { quotesAPI, broadcastAPI } from './services/api';
-import { MessageSquare, RefreshCw, LogOut, AlertCircle, ShoppingBag, LayoutDashboard, Store, Trash2 } from 'lucide-react';
+import { MessageSquare, RefreshCw, LogOut, AlertCircle, ShoppingBag, LayoutDashboard, Store, Trash2, Users } from 'lucide-react';
 
 function App() {
     const [session, setSession] = useState(null);
@@ -193,6 +194,16 @@ function App() {
                             <Store size={18} className="mr-1.5" />
                             Mi Negocio
                         </button>
+                        <button
+                            onClick={() => setCurrentView('customers')}
+                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center ${currentView === 'customers'
+                                ? 'bg-primary-50 text-primary-700'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                                }`}
+                        >
+                            <Users size={18} className="mr-1.5" />
+                            Clientes
+                        </button>
                     </nav>
 
                     <div className="flex items-center space-x-2 border-l pl-4">
@@ -224,6 +235,8 @@ function App() {
                     <ProductManagementPage />
                 ) : currentView === 'business-info' ? (
                     <BusinessInfoPage />
+                ) : currentView === 'customers' ? (
+                    <CustomersPage />
                 ) : (
                     <>
                         {/* Actions Bar */}

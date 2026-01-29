@@ -69,3 +69,16 @@ class CustomerRepository:
         except Exception as e:
             logger.error(f"Error actualizando cliente {customer_id}: {e}")
             return None
+
+    def get_all(self, skip: int = 0, limit: int = 100) -> List[Dict]:
+        """Obtener lista de clientes paginada."""
+        try:
+            response = self.supabase.table(self.table)\
+                .select("*")\
+                .range(skip, skip + limit - 1)\
+                .order("created_at", desc=True)\
+                .execute()
+            return response.data if response.data else []
+        except Exception as e:
+            logger.error(f"Error listando clientes: {e}")
+            return []

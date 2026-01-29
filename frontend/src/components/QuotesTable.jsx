@@ -108,7 +108,7 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote }) => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm text-gray-900">
-                                        Cliente #{quote.id}
+                                        {quote.client_name || `Cliente #${quote.id}`}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">

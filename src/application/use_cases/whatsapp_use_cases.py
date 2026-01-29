@@ -72,24 +72,25 @@ class ProcessWhatsAppMessageUseCase:
         
         logger.info(f"Procesando mensaje de {from_number} ({sender_name or 'Desconocido'}): {text}")
 
-        # --- Gestión de Clientes ---
+        # --- Gestión de Clientes (CRM) ---
+        # Buscamos cliente por teléfono para tener contexto
         customer = None
         if self.customer_repository:
-            # Buscar cliente existente
-            customer = self.customer_repository.get_by_phone(from_number)
+            # Usamos el servicio si posible, sino repo directo (wrapper local)
+            # Para simplificar sin inyectar CustomerService en constructor todavía (refactor menor)
+            from ...infrastructure.services.customer_service import CustomerService
+            c_service = CustomerService(self.customer_repository)
+            customer = c_service.get_customer_by_phone(from_number)
             
-            if not customer:
-                # Registrar nuevo cliente
-                logger.info(f"Registrando nuevo cliente: {from_number}")
-                customer = self.customer_repository.create(from_number, sender_name)
-            elif sender_name and not customer.get('name'):
-                 # Actualizar nombre si no lo teníamos
-                 self.customer_repository.update_name(from_number, sender_name)
-                 customer['name'] = sender_name
+            if customer:
+                logger.info(f"Cliente identificado: {customer.get('full_name')} ({customer.get('id')})")
+            else:
+                logger.info(f"Cliente nuevo detectado: {from_number}")
 
         # 1. Definir palabras clave
         checkout_keywords = ['confirmar', 'listo', 'finalizar', 'comprar', 'pagar', 'fin', 'total']
         confirmation_keywords = ['si', 'sí', 'ok', 'claro', 'dale', 'bueno']
+
         greeting_keywords = ['hola', 'buen', 'buenas', 'que tal', 'hey', 'hello', 'hi', 'saludos']
         quote_keywords = ['cotiz', 'precio', 'cuanto', 'quiero', 'necesito', 'tienes', 'dame', 'busca', 'valor', 'costo']
 
@@ -308,14 +309,29 @@ class ProcessWhatsAppMessageUseCase:
             )
             quote = result['quote']
             
-            # Asociar cliente si existe
-            if customer:
-                quote.customer_id = customer.get('id')
-                
             # --- ASIGNAR DATOS DEL WIZARD ---
             quote.client_name = client_data.get('name')
             quote.client_dni = client_data.get('dni')
             quote.client_address = client_data.get('address')
+
+            # --- Vincular Cliente CRM ---
+            if self.customer_repository:
+                try:
+                    from ...infrastructure.services.customer_service import CustomerService
+                    c_service = CustomerService(self.customer_repository)
+                    
+                    # Registrar o Actualizar con el nombre confirmado
+                    final_customer = c_service.get_or_create_customer(from_number, quote.client_name)
+                    
+                    if final_customer:
+                        # Actualizar dirección
+                        if quote.client_address:
+                            c_service.update_customer_address(final_customer['id'], quote.client_address)
+                        
+                        quote.customer_id = final_customer['id']
+                        logger.info(f"Cotización vinculada a cliente {final_customer['id']}")
+                except Exception as crm_err:
+                     logger.error(f"Error CRM: {crm_err}")
             
             # Inicializar notes si es None para evitar TypeError
             if quote.notes is None:

@@ -91,6 +91,17 @@ export const productsAPI = {
     },
 };
 
+export const customersAPI = {
+    getAll: async () => {
+        const response = await api.get('/customers/');
+        return response.data;
+    },
+    updateAddress: async (id, address) => {
+        const response = await api.put(`/customers/${id}/address`, { main_address: address });
+        return response.data;
+    }
+};
+
 export const businessInfoAPI = {
     getBusinessInfo: async () => {
         try {
