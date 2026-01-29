@@ -82,3 +82,30 @@ class CustomerRepository:
         except Exception as e:
             logger.error(f"Error listando clientes: {e}")
             return []
+    def delete(self, customer_id: str) -> bool:
+        """Eliminar cliente si no tiene cotizaciones."""
+        try:
+            # 1. Verificar integridad (Check quotes)
+            # Nota: Usamos select count para eficiencia
+            quotes_check = self.supabase.table("quotes")\
+                .select("id", count="exact")\
+                .eq("customer_id", customer_id)\
+                .execute()
+            
+            # La propiedad count viene en el response
+            if quotes_check.count and quotes_check.count > 0:
+                raise ValueError("IntegrityError: No se puede eliminar el cliente porque tiene cotizaciones registradas.")
+            
+            # 2. Eliminar
+            response = self.supabase.table(self.table)\
+                .delete()\
+                .eq("id", customer_id)\
+                .execute()
+            
+            return len(response.data) > 0
+        except ValueError as ve:
+            # Re-lanzar errores de validación para manejarlos en el router
+            raise ve
+        except Exception as e:
+            logger.error(f"Error eliminando cliente {customer_id}: {e}")
+            raise e

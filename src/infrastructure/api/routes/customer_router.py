@@ -42,3 +42,25 @@ async def update_address(
     if not updated:
         raise HTTPException(status_code=404, detail="Customer not found")
     return updated
+
+
+@router.delete("/{customer_id}", status_code=204)
+async def delete_customer(
+    customer_id: str,
+    service: CustomerService = Depends(get_customer_service)
+):
+    """
+    Eliminar un cliente.
+    
+    Lanza error 400 si el cliente tiene cotizaciones asociadas (Integridad).
+    """
+    try:
+        deleted = service.repository.delete(customer_id)
+        if not deleted:
+             raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        return None
+    except ValueError as e:
+        # Integrity Error (tiene cotizaciones)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))

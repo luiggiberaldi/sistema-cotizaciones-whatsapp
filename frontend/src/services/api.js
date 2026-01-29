@@ -99,6 +99,10 @@ export const customersAPI = {
     updateAddress: async (id, address) => {
         const response = await api.put(`/customers/${id}/address`, { main_address: address });
         return response.data;
+    },
+    delete: async (id) => {
+        const response = await api.delete(`/customers/${id}`);
+        return response.data;
     }
 };
 
