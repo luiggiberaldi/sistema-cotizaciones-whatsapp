@@ -45,6 +45,33 @@ class WhatsAppService:
         
         logger.warning(f"Verificación de webhook fallida: mode={mode}, token={token}")
         return None
+
+    async def check_credentials(self) -> bool:
+        """
+        Verificar si las credenciales actuales son válidas.
+        
+        Returns:
+            bool: True si el token es válido, False si no.
+        """
+        url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}"
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"✅ Credenciales WhatsApp Válidas: {data.get('name', 'Cuenta Business')}")
+                    return True
+                else:
+                    error = response.json().get('error', {})
+                    logger.error(f"❌ Error Credenciales WhatsApp: {error.get('message')}")
+                    return False
+        except Exception as e:
+            logger.error(f"❌ Error conectando con Meta: {str(e)}")
+            return False
     
     async def send_message(
         self,

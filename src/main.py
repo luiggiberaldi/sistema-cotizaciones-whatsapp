@@ -32,6 +32,14 @@ async def startup_event():
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"Supabase URL: {settings.supabase_url}")
     logger.info(f"Supabase Service Key: {is_service_key_set}")
+    
+    # Verificar credenciales de WhatsApp
+    from .infrastructure.external.whatsapp_service import WhatsAppService
+    ws = WhatsAppService()
+    is_valid = await ws.check_credentials()
+    status_icon = "✅" if is_valid else "❌"
+    logger.info(f"WhatsApp Token Status: {status_icon} ({'Válido' if is_valid else 'INVÁLIDO'})")
+    
     logger.info("===========================")
 
 # Configurar CORS
