@@ -5,7 +5,9 @@ import logging
 from typing import List, Dict
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
+from datetime import datetime
 from ....infrastructure.external import WhatsAppService
+from ....infrastructure.database.supabase_quote_repository import SupabaseQuoteRepository
 from ....domain.base import StrictBaseModel
 
 logger = logging.getLogger(__name__)
@@ -13,8 +15,9 @@ logger = logging.getLogger(__name__)
 # Crear router
 router = APIRouter(prefix="/broadcast", tags=["broadcast"])
 
-# Inicializar servicio
+# Inicializar servicios
 whatsapp_service = WhatsAppService()
+quote_repo = SupabaseQuoteRepository()
 
 
 class ClientInfo(StrictBaseModel):
@@ -101,12 +104,27 @@ async def send_template_broadcast(request: BroadcastTemplateRequest):
             # Limpiar número de teléfono (remover + y espacios)
             phone = client.phone.replace('+', '').replace(' ', '').replace('-', '')
             
+            # Reemplazar parámetros dinámicos
+            final_params = []
+            for p in request.parameters:
+                if p == '{{name}}':
+                    final_params.append(client.name)
+                elif p == '{{total}}':
+                    # Buscar última cotización para obtener el monto
+                    user_quotes = await quote_repo.get_by_phone(phone)
+                    total_str = f"${user_quotes[0].total:.2f}" if user_quotes else "$0.00"
+                    final_params.append(total_str)
+                elif p == '{{fecha}}':
+                    final_params.append(datetime.now().strftime("%d/%m/%Y"))
+                else:
+                    final_params.append(p)
+
             # Enviar template
             response = await whatsapp_service.send_template_message(
                 to=phone,
                 template_name=request.template_name,
                 language_code=request.language_code,
-                parameters=request.parameters
+                parameters=final_params
             )
             
             # Extraer message_id de la respuesta

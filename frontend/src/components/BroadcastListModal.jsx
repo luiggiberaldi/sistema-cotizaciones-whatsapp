@@ -1,30 +1,84 @@
-import React from 'react';
-import { Check, X, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Check, X, Loader2, Search, Filter, Users } from 'lucide-react';
+import { customersAPI } from '../services/api';
 
-const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
-    const [templateName, setTemplateName] = React.useState('hello_world');
-    const [languageCode, setLanguageCode] = React.useState('es');
-    const [parameters, setParameters] = React.useState('');
-    const [sending, setSending] = React.useState(false);
-    const [results, setResults] = React.useState(null);
+const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedPhones = [] }) => {
+    // Estados del Mensaje
+    const [templateName, setTemplateName] = useState('hello_world');
+    const [languageCode, setLanguageCode] = useState('es');
+    const [parameters, setParameters] = useState('');
+    const [sending, setSending] = useState(false);
+    const [results, setResults] = useState(null);
+
+    // Estados de Clientes y Filtros
+    const [customers, setCustomers] = useState([]);
+    const [loadingCustomers, setLoadingCustomers] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [selectedPhones, setSelectedPhones] = useState(new Set(initialSelectedPhones));
+
+    // Cargar clientes con filtros
+    const fetchCustomers = useCallback(async () => {
+        setLoadingCustomers(true);
+        try {
+            const data = await customersAPI.list({
+                q: searchQuery,
+                status: statusFilter
+            });
+            setCustomers(data);
+
+            // Si venimos de la tabla con selecciones previas, asegurarnos de que estén en el Set
+            if (initialSelectedPhones.length > 0 && selectedPhones.size === 0) {
+                setSelectedPhones(new Set(initialSelectedPhones));
+            }
+        } catch (error) {
+            console.error('Error fetching customers:', error);
+        } finally {
+            setLoadingCustomers(false);
+        }
+    }, [searchQuery, statusFilter, initialSelectedPhones]);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchCustomers();
+        }
+    }, [isOpen, fetchCustomers]);
+
+    // Manejo de Selección
+    const toggleCustomer = (phone) => {
+        const newSelected = new Set(selectedPhones);
+        if (newSelected.has(phone)) {
+            newSelected.delete(phone);
+        } else {
+            newSelected.add(phone);
+        }
+        setSelectedPhones(newSelected);
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            const allPhones = customers.map(c => c.phone_number);
+            setSelectedPhones(new Set([...selectedPhones, ...allPhones]));
+        } else {
+            // Deseleccionar solo los que están actualmente en la lista filtrada
+            const currentPhones = new Set(customers.map(c => c.phone_number));
+            const newSelected = new Set([...selectedPhones].filter(p => !currentPhones.has(p)));
+            setSelectedPhones(newSelected);
+        }
+    };
+
+    const isAllSelected = customers.length > 0 && customers.every(c => selectedPhones.has(c.phone_number));
 
     const handleSend = async () => {
+        if (selectedPhones.size === 0) return;
         setSending(true);
         setResults(null);
 
         try {
             let params;
-
             if (templateName === 'payment_reminder') {
-                // Modo Automático: Nombre, Total, Fecha (input user)
-                // Enviamos placeholders que el backend (o lógica de envío) deberá procesar
-                // Si el backend espera recibir los valores reales por cliente, 
-                // entonces la API debe soportar recibir variables, o el backend iterar.
-                // Asumimos que el backend reconocerá {{name}} y {{total}} o que
-                // el usuario solo quería que los enviáramos "pre-llenos" como strings 
-                // para que el backend haga el reemplazo si tiene esa lógica.
-                // Dado el requerimiento "automatiza el llenado", enviamos la estructura fija.
-                params = ['{{name}}', '{{total}}', parameters.trim()];
+                // El backend se encargará de reemplazar {{name}}, {{total}} y {{fecha}}
+                params = ['{{name}}', '{{total}}', '{{fecha}}'];
             } else {
                 params = parameters
                     .split(',')
@@ -32,11 +86,22 @@ const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
                     .filter((p) => p);
             }
 
-            const result = await onSend(selectedClients, templateName, languageCode, params);
+            // Convertir Set de teléfonos a lista de objetos con name y phone
+            // Buscamos en Customers
+            const clientsToSend = [...selectedPhones].map(phone => {
+                const customer = customers.find(c => c.phone_number === phone);
+                return {
+                    name: customer ? customer.full_name : 'Cliente',
+                    phone: phone
+                };
+            });
+
+            const result = await onSend(clientsToSend, templateName, languageCode, params);
             setResults(result);
         } catch (error) {
             console.error('Error sending broadcast:', error);
-            alert('Error al enviar mensajes: ' + error.message);
+            const errorMessage = error.response?.data?.detail || error.message || 'Error desconocido del servidor';
+            alert('Error al enviar mensajes: ' + errorMessage);
         } finally {
             setSending(false);
         }
@@ -47,6 +112,9 @@ const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
         setTemplateName('hello_world');
         setLanguageCode('es');
         setParameters('');
+        setSelectedPhones(new Set());
+        setSearchQuery('');
+        setStatusFilter('');
         onClose();
     };
 
@@ -54,183 +122,208 @@ const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-gray-800">
-                        📢 Lista de Difusión
-                    </h2>
-                    <button
-                        onClick={handleClose}
-                        className="text-gray-500 hover:text-gray-700 transition"
-                    >
+                <div className="px-6 py-4 border-b flex justify-between items-center bg-white shrink-0">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-primary-100 p-2 rounded-lg">
+                            <Users size={24} className="text-primary-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800">
+                            Difusión 2.0
+                        </h2>
+                    </div>
+                    <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 transition p-2">
                         <X size={24} />
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-6">
-                    {/* Clientes seleccionados */}
-                    <div>
-                        <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                            Clientes Seleccionados ({selectedClients.length})
-                        </h3>
-                        <div className="bg-gray-50 rounded-lg p-4 max-h-40 overflow-y-auto">
-                            {selectedClients.map((client, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-center justify-between py-2 border-b last:border-b-0"
-                                >
-                                    <div>
-                                        <p className="font-medium text-gray-800">{client.name}</p>
-                                        <p className="text-sm text-gray-500">{client.phone}</p>
-                                    </div>
-                                    <Check className="text-green-500" size={20} />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Configuración del template */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-700">
-                            Configuración del Mensaje
-                        </h3>
-
-                        {/* Template Name */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Nombre del Template
-                            </label>
-                            <select
-                                value={templateName}
-                                onChange={(e) => setTemplateName(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                disabled={sending}
-                            >
-                                <option value="hello_world">Hello World</option>
-                                <option value="quote_notification">Notificación de Cotización</option>
-                                <option value="payment_reminder">Recordatorio de Pago</option>
-                            </select>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Solo templates aprobados por Meta
-                            </p>
-                        </div>
-
-                        {/* Language Code */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Idioma
-                            </label>
-                            <select
-                                value={languageCode}
-                                onChange={(e) => setLanguageCode(e.target.value)}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                disabled={sending}
-                            >
-                                <option value="es">Español (es)</option>
-                                <option value="en">English (en)</option>
-                                <option value="pt">Português (pt)</option>
-                            </select>
-                        </div>
-
-                        {/* Parameters */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Parámetros
-                            </label>
-
-                            {templateName === 'payment_reminder' ? (
-                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                                    <p className="text-sm text-blue-800 font-medium mb-2">
-                                        ✨ Modo Automático Activado
-                                    </p>
-                                    <p className="text-xs text-blue-600 mb-3">
-                                        Los parámetros se llenarán automáticamente para cada cliente:
-                                        <br />1. Nombre del Cliente
-                                        <br />2. Total de la Cotización
-                                    </p>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                                        Parámetro 3: Fecha de Vencimiento
-                                    </label>
+                <div className="flex-1 overflow-y-auto p-6 flex flex-col lg:flex-row gap-6">
+                    {/* Panel Izquierdo: Filtros y Selección de Clientes */}
+                    <div className="flex-1 flex flex-col space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                {/* Búsqueda */}
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                                     <input
                                         type="text"
-                                        value={parameters}
-                                        onChange={(e) => setParameters(e.target.value)}
-                                        placeholder="Ej: mañana a las 5pm"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                                        disabled={sending}
+                                        placeholder="Buscar por nombre o celular..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                                     />
+                                </div>
+                                {/* Filtro Status */}
+                                <div className="relative">
+                                    <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 appearance-none bg-white font-medium text-gray-700"
+                                    >
+                                        <option value="">Cualquier Estado</option>
+                                        <option value="draft">🛒 Solo Borradores</option>
+                                        <option value="approved">✅ Solo Aprobados</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Select All */}
+                            <div className="flex items-center justify-between px-2 text-sm text-gray-600">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        onChange={handleSelectAll}
+                                        className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                    />
+                                    <span className="font-semibold group-hover:text-primary-600">Seleccionar Todo ({customers.length})</span>
+                                </label>
+                                <span className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full font-bold">
+                                    {selectedPhones.size} seleccionados
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Lista de Clientes */}
+                        <div className="flex-1 overflow-y-auto border border-gray-200 rounded-xl min-h-[300px]">
+                            {loadingCustomers ? (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                                    <Loader2 className="animate-spin mb-2" size={32} />
+                                    <p>Cargando clientes...</p>
+                                </div>
+                            ) : customers.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                    <Users size={48} className="mb-2 opacity-20" />
+                                    <p>No se encontraron clientes.</p>
                                 </div>
                             ) : (
-                                <>
-                                    <input
-                                        type="text"
-                                        value={parameters}
-                                        onChange={(e) => setParameters(e.target.value)}
-                                        placeholder="Ej: Juan, $100.00"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                        disabled={sending}
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Separa los parámetros por coma (,)
-                                    </p>
-                                </>
+                                <div className="divide-y divide-gray-100">
+                                    {customers.map((customer) => (
+                                        <label
+                                            key={customer.phone_number}
+                                            className={`flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition ${selectedPhones.has(customer.phone_number) ? 'bg-primary-50/30' : ''}`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedPhones.has(customer.phone_number)}
+                                                onChange={() => toggleCustomer(customer.phone_number)}
+                                                className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                            />
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="font-bold text-gray-900 leading-tight">{customer.full_name}</p>
+                                                </div>
+                                                <p className="text-sm text-gray-500 font-medium">{customer.phone_number}</p>
+                                            </div>
+                                            {selectedPhones.has(customer.phone_number) && (
+                                                <Check className="text-primary-600" size={20} />
+                                            )}
+                                        </label>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Resultados */}
-                    {results && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h4 className="font-semibold text-blue-900 mb-2">
-                                Resultados del Envío
-                            </h4>
-                            <div className="space-y-2">
-                                {results.results?.map((result, index) => (
-                                    <div
-                                        key={index}
-                                        className={`flex items-center justify-between p-2 rounded ${result.success
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-red-100 text-red-800'
-                                            }`}
-                                    >
-                                        <span className="text-sm">{result.phone}</span>
-                                        {result.success ? (
-                                            <Check size={16} />
-                                        ) : (
-                                            <X size={16} />
-                                        )}
+                    {/* Panel Derecho: Configuración de Envío */}
+                    <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0">
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold text-gray-800">Mensaje Automático</h3>
+
+                            {/* Template */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plantilla de Meta</label>
+                                <select
+                                    value={templateName}
+                                    onChange={(e) => setTemplateName(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
+                                    disabled={sending}
+                                >
+                                    <option value="hello_world">👋 Hello World</option>
+                                    <option value="quote_notification">📄 Notificación Cotización</option>
+                                    <option value="payment_reminder">💰 Recordatorio de Pago</option>
+                                </select>
+                            </div>
+
+                            {/* Parámetros */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contenido Extra (Parámetros)</label>
+                                {templateName === 'payment_reminder' ? (
+                                    <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 space-y-2">
+                                        <p className="text-xs text-primary-800 leading-snug">
+                                            ✨ Llenado automático de <strong>Nombre</strong> y <strong>Total</strong> activado.
+                                        </p>
+                                        <input
+                                            type="text"
+                                            value={parameters}
+                                            onChange={(e) => setParameters(e.target.value)}
+                                            placeholder="Fecha: ej 'esta tarde'"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                            disabled={sending}
+                                        />
                                     </div>
-                                ))}
+                                ) : (
+                                    <textarea
+                                        value={parameters}
+                                        onChange={(e) => setParameters(e.target.value)}
+                                        placeholder="Separar por comas..."
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
+                                        disabled={sending}
+                                    />
+                                )}
                             </div>
                         </div>
-                    )}
+
+                        {/* Resultados */}
+                        {results && (
+                            <div className="bg-gray-900 text-white rounded-xl p-4 text-sm max-h-[200px] overflow-y-auto no-scrollbar">
+                                <h4 className="font-bold mb-2 flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                    Envíos Finalizados
+                                </h4>
+                                <div className="space-y-1">
+                                    {results.results?.map((res, i) => (
+                                        <div key={i} className="flex justify-between items-center py-1 opacity-80">
+                                            <span>{res.phone.slice(-4)}</span>
+                                            {res.success ? <Check size={14} className="text-green-400" /> : <X size={14} className="text-red-400" />}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Footer */}
-                <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
-                    <button
-                        onClick={handleClose}
-                        className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-medium"
-                        disabled={sending}
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSend}
-                        disabled={sending || selectedClients.length === 0}
-                        className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                        {sending ? (
-                            <>
-                                <Loader2 className="animate-spin" size={20} />
-                                Enviando...
-                            </>
-                        ) : (
-                            <>Enviar Mensajes ({selectedClients.length})</>
-                        )}
-                    </button>
+                <div className="px-6 py-4 bg-gray-50 border-t flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                    <p className="text-sm text-gray-500 italic">
+                        Los mensajes se enviarán vía la API oficial de WhatsApp Cloud.
+                    </p>
+                    <div className="flex gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={handleClose}
+                            className="flex-1 sm:flex-none px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition font-bold text-gray-700"
+                            disabled={sending}
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleSend}
+                            disabled={sending || selectedPhones.size === 0}
+                            className="flex-1 sm:flex-none px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-bold shadow-lg shadow-primary-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {sending ? (
+                                <>
+                                    <Loader2 className="animate-spin" size={20} />
+                                    Procesando...
+                                </>
+                            ) : (
+                                <>Iniciar Difusión ({selectedPhones.size})</>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -238,3 +331,4 @@ const BroadcastListModal = ({ isOpen, onClose, selectedClients, onSend }) => {
 };
 
 export default BroadcastListModal;
+

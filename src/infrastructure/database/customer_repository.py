@@ -109,3 +109,38 @@ class CustomerRepository:
         except Exception as e:
             logger.error(f"Error eliminando cliente {customer_id}: {e}")
             raise e
+    def get_filtered(self, query: Optional[str] = None, quote_status: Optional[str] = None) -> List[Dict]:
+        """
+        Obtener clientes filtrados por nombre/teléfono y/o estado de sus cotizaciones.
+        """
+        try:
+            # Iniciamos la consulta base
+            # Si filtramos por status de cotización, necesitamos un join (quotes!inner)
+            if quote_status:
+                builder = self.supabase.table(self.table)\
+                    .select("*, quotes!inner(status)")\
+                    .eq("quotes.status", quote_status)
+            else:
+                builder = self.supabase.table(self.table).select("*")
+
+            # Filtro de búsqueda (OR entre nombre y teléfono)
+            if query:
+                # Supabase sintaxis para OR: "column1.ilike.%val%,column2.ilike.%val%"
+                search_filter = f"full_name.ilike.%{query}%,phone_number.ilike.%{query}%"
+                builder = builder.or_(search_filter)
+
+            response = builder.order("full_name").execute()
+            
+            # Limpiar duplicados si el join trajo varias filas por cliente con múltiples cotizaciones
+            unique_customers = {}
+            for item in response.data:
+                cid = item['id']
+                if cid not in unique_customers:
+                    # Remover el campo joined 'quotes' de la respuesta final para limpieza
+                    if 'quotes' in item: del item['quotes']
+                    unique_customers[cid] = item
+            
+            return list(unique_customers.values())
+        except Exception as e:
+            logger.error(f"Error filtrando clientes (q={query}, s={quote_status}): {e}")
+            return []

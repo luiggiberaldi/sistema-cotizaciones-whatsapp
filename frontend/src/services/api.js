@@ -103,6 +103,10 @@ export const customersAPI = {
         const response = await api.put(`/customers/${id}/address`, { main_address: address });
         return response.data;
     },
+    list: async (params) => {
+        const response = await api.get('/customers/list', { params });
+        return response.data;
+    },
     delete: async (id) => {
         const response = await api.delete(`/customers/${id}`);
         return response.data;

@@ -11,6 +11,18 @@ def get_customer_service():
     repo = CustomerRepository(client)
     return CustomerService(repo)
 
+@router.get("/list", response_model=List[Dict])
+async def list_customers_filtered(
+    q: Optional[str] = Query(None, alias="q"),
+    status: Optional[str] = Query(None, alias="status"),
+    service: CustomerService = Depends(get_customer_service)
+):
+    """
+    Listar clientes con filtros de búsqueda y estado de cotización.
+    """
+    return service.repository.get_filtered(query=q, quote_status=status)
+
+
 @router.get("/", response_model=List[Dict])
 async def get_customers(
     skip: int = 0, 

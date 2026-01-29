@@ -86,10 +86,10 @@ function App() {
     const getUniqueClients = () => {
         const unique = new Map();
         selectedQuotes.forEach(quote => {
-            if (!unique.has(quote.client_phone)) {
-                unique.set(quote.client_phone, {
-                    name: `Cliente #${quote.id}`, // O el nombre real si estuviera en la quote
-                    phone: quote.client_phone
+            if (!unique.has(quote.phone)) {
+                unique.set(quote.phone, {
+                    name: quote.name,
+                    phone: quote.phone
                 });
             }
         });
@@ -106,7 +106,9 @@ function App() {
             );
             return result;
         } catch (error) {
-            throw new Error(error.response?.data?.detail || 'Error al enviar mensajes');
+            const detail = error.response?.data?.detail;
+            const message = typeof detail === 'string' ? detail : JSON.stringify(detail) || error.message || 'Error al enviar mensajes';
+            throw new Error(message);
         }
     };
 
@@ -159,50 +161,50 @@ function App() {
                         <div className="bg-primary-600 p-2 rounded-lg">
                             <span className="text-white font-bold text-xl">SC</span>
                         </div>
-                        <h1 className="text-xl font-bold text-gray-900">
+                        <h1 className="text-xl font-bold text-gray-900 hidden sm:block">
                             Sistema de Cotizaciones
                         </h1>
                     </div>
-                    <nav className="flex items-center space-x-1 mr-4">
+                    <nav className="flex items-center space-x-1 mr-4 overflow-x-auto no-scrollbar">
                         <button
                             onClick={() => setCurrentView('dashboard')}
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center ${currentView === 'dashboard'
+                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center shrink-0 ${currentView === 'dashboard'
                                 ? 'bg-primary-50 text-primary-700'
                                 : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                                 }`}
                         >
-                            <LayoutDashboard size={18} className="mr-1.5" />
-                            Dashboard
+                            <LayoutDashboard size={18} />
+                            <span className="hidden lg:inline ml-1.5">Dashboard</span>
                         </button>
                         <button
                             onClick={() => setCurrentView('products')}
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center ${currentView === 'products'
+                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center shrink-0 ${currentView === 'products'
                                 ? 'bg-primary-50 text-primary-700'
                                 : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                                 }`}
                         >
-                            <ShoppingBag size={18} className="mr-1.5" />
-                            Productos
+                            <ShoppingBag size={18} />
+                            <span className="hidden lg:inline ml-1.5">Productos</span>
                         </button>
                         <button
                             onClick={() => setCurrentView('business-info')}
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center ${currentView === 'business-info'
+                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center shrink-0 ${currentView === 'business-info'
                                 ? 'bg-primary-50 text-primary-700'
                                 : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                                 }`}
                         >
-                            <Store size={18} className="mr-1.5" />
-                            Mi Negocio
+                            <Store size={18} />
+                            <span className="hidden lg:inline ml-1.5">Mi Negocio</span>
                         </button>
                         <button
                             onClick={() => setCurrentView('customers')}
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center ${currentView === 'customers'
+                            className={`px-3 py-2 rounded-md text-sm font-medium transition flex items-center shrink-0 ${currentView === 'customers'
                                 ? 'bg-primary-50 text-primary-700'
                                 : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                                 }`}
                         >
-                            <Users size={18} className="mr-1.5" />
-                            Clientes
+                            <Users size={18} />
+                            <span className="hidden lg:inline ml-1.5">Clientes</span>
                         </button>
                     </nav>
 
@@ -240,9 +242,9 @@ function App() {
                 ) : (
                     <>
                         {/* Actions Bar */}
-                        <div className="mb-6 flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                                <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+                        <div className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center space-x-4 w-full sm:w-auto">
+                                <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 w-full sm:w-auto flex items-center justify-center sm:justify-start">
                                     <span className="text-sm font-medium text-gray-500">
                                         Seleccionados:
                                     </span>
@@ -251,22 +253,18 @@ function App() {
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 w-full sm:w-auto">
                                 <button
                                     onClick={handleOpenBroadcastModal}
-                                    disabled={selectedQuotes.length === 0}
-                                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${selectedQuotes.length > 0
-                                        ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-md transform hover:-translate-y-0.5'
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                        }`}
+                                    className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition bg-primary-600 text-white hover:bg-primary-700 shadow-md transform hover:-translate-y-0.5"
                                 >
                                     <MessageSquare size={20} />
-                                    <span>Crear Lista de Difusión</span>
+                                    <span>Difusión</span>
                                 </button>
                                 <button
                                     onClick={handleDeleteQuotes}
                                     disabled={selectedQuotes.length === 0}
-                                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${selectedQuotes.length > 0
+                                    className={`flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${selectedQuotes.length > 0
                                         ? 'bg-red-100 text-red-700 hover:bg-red-200 shadow-sm transform hover:-translate-y-0.5'
                                         : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                         }`}
@@ -340,7 +338,7 @@ function App() {
             <BroadcastListModal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
-                selectedClients={getUniqueClients()}
+                initialSelectedPhones={selectedQuotes.map(q => q.phone)}
                 onSend={handleSendBroadcast}
             />
         </div>
