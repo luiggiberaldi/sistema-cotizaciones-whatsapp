@@ -414,7 +414,10 @@ class ProcessWhatsAppMessageUseCase:
                 }
                 for item in quote.items
             ],
-            'total': quote.total
+            'total': quote.total,
+            'client_name': quote.client_name,
+            'client_dni': quote.client_dni,
+            'client_address': quote.client_address
         }
 
 
