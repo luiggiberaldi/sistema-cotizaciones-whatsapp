@@ -471,6 +471,14 @@ class ProcessWhatsAppMessageUseCase:
             
             return {'success': True, 'action': 'add_items', 'items_count': len(merged_items)}
 
+        except Exception as e:
+            logger.error(f"Error in Gemini fallback process: {e}", exc_info=True)
+            # Fallback error message
+            error_message = "Lo siento, no pude entender tu mensaje. ¿Podrías reformular tu pregunta?"
+            await self.whatsapp_service.send_message(from_number, error_message)
+            await self.whatsapp_service.mark_message_as_read(message_id)
+            return {'success': False, 'reason': 'gemini_fallback_error'}
+
         except ValueError as e:
             # Re-raise to be handled by execute() based on intent
             raise e
