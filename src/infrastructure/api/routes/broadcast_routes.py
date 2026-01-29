@@ -4,6 +4,7 @@ Endpoints para envío masivo de mensajes (Broadcast).
 import logging
 from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException, status
+import httpx
 from pydantic import BaseModel, Field
 from datetime import datetime
 from ...external import WhatsAppService
@@ -155,9 +156,30 @@ async def send_template_broadcast(request: BroadcastTemplateRequest):
             successful += 1
             logger.info(f"Template enviado exitosamente a {client.phone}")
             
+        except httpx.HTTPStatusError as e:
+            # Capturar detalles específicos de la API de WhatsApp/Meta
+            error_detail = str(e)
+            try:
+                error_body = e.response.json()
+                if 'error' in error_body:
+                    error_detail = error_body['error'].get('message', str(e))
+                else:
+                    error_detail = f"Status {e.response.status_code}: {e.response.text}"
+            except Exception:
+                pass
+                
+            logger.error(f"Error de API Meta para {client.phone}: {error_detail}")
+            
+            results.append(BroadcastResult(
+                phone=client.phone,
+                success=False,
+                error=error_detail
+            ))
+            failed += 1
+            
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Error enviando template a {client.phone}: {error_msg}")
+            logger.error(f"Error inesperado enviando template a {client.phone}: {error_msg}")
             
             results.append(BroadcastResult(
                 phone=client.phone,

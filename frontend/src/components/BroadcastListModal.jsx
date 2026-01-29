@@ -297,9 +297,26 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                 </h4>
                                 <div className="space-y-1">
                                     {results.results?.map((res, i) => (
-                                        <div key={i} className="flex justify-between items-center py-1 opacity-80">
-                                            <span>{res.phone.slice(-4)}</span>
-                                            {res.success ? <Check size={14} className="text-green-400" /> : <X size={14} className="text-red-400" />}
+                                        <div key={i} className="py-2 border-b border-gray-800 last:border-0">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="font-medium text-gray-300">...{res.phone.slice(-4)}</span>
+                                                {res.success ? (
+                                                    <div className="flex items-center gap-1 text-green-400 text-xs">
+                                                        <span>Enviado</span>
+                                                        <Check size={14} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1 text-red-400 text-xs">
+                                                        <span>Falló</span>
+                                                        <X size={14} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {!res.success && res.error && (
+                                                <p className="text-[10px] text-red-500 bg-red-950/30 p-1.5 rounded leading-tight">
+                                                    {res.error}
+                                                </p>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
