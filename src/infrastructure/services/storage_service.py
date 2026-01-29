@@ -31,11 +31,16 @@ class StorageService:
                 self.supabase.storage.from_(self.bucket_name).upload(
                     path=destination_path,
                     file=f,
-                    file_options={"content-type": "application/pdf"}
+                    file_options={"content-type": "application/pdf", "upsert": "true"}
                 )
             
             # Obtener URL pública
             res = self.supabase.storage.from_(self.bucket_name).get_public_url(destination_path)
+            
+            # Limpiar URL (eliminar query params si existen)
+            if res and isinstance(res, str) and res.endswith('?'):
+                res = res[:-1]
+                
             return res
             
         except Exception as e:
