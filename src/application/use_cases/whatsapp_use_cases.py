@@ -340,12 +340,13 @@ class ProcessWhatsAppMessageUseCase:
             new_quote = result['quote']
 
             # Guardar cotización en base de datos (Persistencia de auditoría y dashboard)
-            try:
-                logger.info(f"Guardando cotización parcial en base de datos para {from_number}...")
-                await self.quote_repository.create(new_quote)
-            except Exception as db_err:
-                logger.error(f"Error persistiendo cotización: {db_err}")
-                # No bloqueamos el flujo de WhatsApp si falla la BD, pero lo registramos
+            # REMOVED: Se elimina la creación parcial para evitar desorden. Solo se guarda al final.
+            # try:
+            #     logger.info(f"Guardando cotización parcial en base de datos para {from_number}...")
+            #     await self.quote_repository.create(new_quote)
+            # except Exception as db_err:
+            #     logger.error(f"Error persistiendo cotización: {db_err}")
+
 
             
             # Si no hay items, QuoteService debería haber lanzado ValueError,
