@@ -48,3 +48,12 @@ node_modules/
 
 # Agent
 .antigravity/
+
+# Scripts (Security)
+scripts/
+
+# Backup and Temporary
+*.zip
+backed.zip
+frontend/frontend.zip
+sistema correlativo.zip
