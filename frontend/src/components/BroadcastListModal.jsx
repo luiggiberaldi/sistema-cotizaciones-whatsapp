@@ -36,7 +36,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
         } finally {
             setLoadingCustomers(false);
         }
-    }, [searchQuery, statusFilter, initialSelectedPhones]);
+    }, [searchQuery, statusFilter, initialSelectedClients]);
 
     useEffect(() => {
         if (isOpen) {
