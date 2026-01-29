@@ -220,10 +220,17 @@ class ProcessWhatsAppMessageUseCase:
         if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
             return await self._handle_greeting(from_number, message_id, customer)
 
-        # 5. Check: Ubicación / Dirección (FAQ)
-        location_keywords = ['ubicacion', 'donde', 'direccion', 'local', 'tienda', 'ubicados']
+        # 5. Check: Ubicación / Dirección / Horario (FAQ)
+        location_keywords = ['ubicacion', 'donde', 'direccion', 'local', 'tienda', 'ubicados', 'horario', 'hora', 'abierto']
         if any(keyword in text_lower for keyword in location_keywords):
-             msg = "📍 *Nuestra Ubicación:*\n\nEstamos ubicados en el Centro Comercial El Socorro, Local 12.\nValencia, Edo. Carabobo.\n\n⏰ Horario: Lunes a Sábado de 8:00 AM a 5:00 PM."
+             from ...infrastructure.services.business_info_service import BusinessInfoService
+             business_service = BusinessInfoService()
+             
+             # Obtener info dinámica de BD (con defaults por seguridad)
+             direccion = business_service.get_value("direccion", "Centro Comercial El Socorro, Local 12, Valencia.")
+             horario = business_service.get_value("horario", "Lunes a Sábado de 8:00 AM a 5:00 PM")
+             
+             msg = f"📍 *Nuestra Ubicación:*\n{direccion}\n\n⏰ *Horario de Atención:*\n{horario}"
              await self.whatsapp_service.send_message(from_number, msg)
              return {'success': True, 'action': 'location_info'}
 
@@ -471,17 +478,8 @@ class ProcessWhatsAppMessageUseCase:
             
             return {'success': True, 'action': 'add_items', 'items_count': len(merged_items)}
 
-        except Exception as e:
-            logger.error(f"Error in Gemini fallback process: {e}", exc_info=True)
-            # Fallback error message
-            error_message = "Lo siento, no pude entender tu mensaje. ¿Podrías reformular tu pregunta?"
-            await self.whatsapp_service.send_message(from_number, error_message)
-            await self.whatsapp_service.mark_message_as_read(message_id)
-            return {'success': False, 'reason': 'gemini_fallback_error'}
-
-        except ValueError as e:
-            # Re-raise to be handled by execute() based on intent
-            raise e
+        except ValueError:
+            raise
 
     def _merge_items(self, current: List[Dict], new: List[Dict]) -> List[Dict]:
         """Merge new items into current list, summing quantities."""
