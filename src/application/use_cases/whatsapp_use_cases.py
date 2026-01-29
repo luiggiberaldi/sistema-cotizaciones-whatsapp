@@ -296,11 +296,20 @@ class ProcessWhatsAppMessageUseCase:
                 public_url = await self.storage_service.upload_pdf(pdf_path, storage_path)
                 
                 if public_url:
+                    # Sanitizar nombre para archivo (alfanumérico y guiones bajos)
+                    safe_name = "".join(c if c.isalnum() else "_" for c in (created_quote.client_name or "Cliente"))
+                    # Evitar múltiples guiones bajos seguidos
+                    while "__" in safe_name:
+                        safe_name = safe_name.replace("__", "_")
+                    
+                    pdf_filename = f"Cotizacion_N_{created_quote.id}_{safe_name}.pdf"
+
                     # Enviar Documento PDF
                     await self.whatsapp_service.send_document(
                         to=from_number,
                         link=public_url,
-                        caption=f"Aquí tienes tu cotización formal 📄 (N° {created_quote.id})"
+                        caption=f"Aquí tienes tu cotización formal 📄 (N° {created_quote.id})",
+                        filename=pdf_filename
                     )
                 else:
                     # Fallback si no se pudo subir
