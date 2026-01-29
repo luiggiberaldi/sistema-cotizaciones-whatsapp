@@ -88,15 +88,64 @@ class ProcessWhatsAppMessageUseCase:
                 logger.info(f"Cliente nuevo detectado: {from_number}")
 
         # 1. Definir palabras clave
-        checkout_keywords = ['confirmar', 'listo', 'finalizar', 'comprar', 'pagar', 'fin', 'total']
-        confirmation_keywords = ['si', 'sí', 'ok', 'claro', 'dale', 'bueno']
-
         greeting_keywords = ['hola', 'buen', 'buenas', 'que tal', 'hey', 'hello', 'hi', 'saludos']
+        location_keywords = ['ubicacion', 'donde', 'direccion', 'local', 'tienda', 'ubicados', 'horario', 'hora', 'abierto']
+        delivery_keywords = ['delivery', 'envio', 'domicilio', 'traer', 'llevan', 'zonas', 'costo de envio']
+        payment_keywords = ['pagar', 'pago', 'cuenta', 'zelle', 'binance', 'banco', 'transferencia', 'pago movil', 'bolivares', 'dolares', 'metodos']
+        
+        checkout_keywords = ['confirmar', 'listo', 'finalizar', 'comprar', 'fin', 'total']
+        confirmation_keywords = ['si', 'sí', 'ok', 'claro', 'dale', 'bueno']
         quote_keywords = ['cotiz', 'precio', 'cuanto', 'quiero', 'necesito', 'tienes', 'dame', 'busca', 'valor', 'costo']
 
         text_lower = text.lower()
 
-        # 2. Check: Session State Machine (Wizard de Datos)
+        # 2. Check: Saludo (PRIORIDAD ALTA)
+        if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
+            return await self._handle_greeting(from_number, message_id, customer)
+
+        # 3. Check: Ubicación / Dirección / Horario (FAQ)
+        if any(keyword in text_lower for keyword in location_keywords):
+             from ...infrastructure.services.business_info_service import BusinessInfoService
+             business_service = BusinessInfoService()
+             direccion = business_service.get_value("direccion", "Centro Comercial El Socorro, Local 12, Valencia.")
+             horario = business_service.get_value("horario", "Lunes a Sábado de 8:00 AM a 5:00 PM")
+             msg = f"📍 *Nuestra Ubicación:*\n{direccion}\n\n⏰ *Horario de Atención:*\n{horario}"
+             await self.whatsapp_service.send_message(from_number, msg)
+             return {'success': True, 'action': 'location_info'}
+
+        # 4. Check: Delivery / Envíos (FAQ)
+        if any(keyword in text_lower for keyword in delivery_keywords):
+             from ...infrastructure.services.business_info_service import BusinessInfoService
+             business_service = BusinessInfoService()
+             has_delivery = business_service.get_value("has_delivery", "true").lower() == "true"
+             if not has_delivery:
+                 msg = "🚫 *Servicio de Delivery No Disponible*\n\nPor el momento no contamos con servicio de entrega a domicilio. Solo realizamos entregas personales en nuestra tienda física."
+             else:
+                 info = business_service.get_value("delivery_info", "Realizamos entregas en toda la ciudad.")
+                 precio = business_service.get_value("delivery_precio", "Consultar tarifa según zona.")
+                 msg = f"🚚 *Servicio de Delivery:*\n{info}\n\n💰 *Tarifas:*\n{precio}"
+             await self.whatsapp_service.send_message(from_number, msg)
+             return {'success': True, 'action': 'delivery_info'}
+             
+        # 5. Check: Métodos de Pago (FAQ)
+        if any(keyword in text_lower for keyword in payment_keywords):
+             from ...infrastructure.services.business_info_service import BusinessInfoService
+             business_service = BusinessInfoService()
+             
+             metodos = business_service.get_value("metodos_pago", "Aceptamos Efectivo, Pago Móvil, Zelle y Binance.")
+             pm = business_service.get_value("pago_movil", "Solicita los datos de pago móvil al finalizar tu pedido.")
+             zelle = business_service.get_value("zelle", "")
+             binance = business_service.get_value("binance", "")
+             
+             msg = f"💳 *Métodos de Pago:* \n{metodos}\n\n"
+             if pm: msg += f"📲 *Pago Móvil:* \n{pm}\n\n"
+             if zelle: msg += f"🇺🇸 *Zelle:* \n{zelle}\n\n"
+             if binance: msg += f"🪙 *Binance:* \n{binance}"
+             
+             await self.whatsapp_service.send_message(from_number, msg.strip())
+             return {'success': True, 'action': 'payment_info'}
+
+        # 6. Check: Session State Machine (Wizard de Datos)
         if self.session_repository:
             session = self.session_repository.get_session(from_number)
             if session:
@@ -160,44 +209,22 @@ class ProcessWhatsAppMessageUseCase:
                     await self.whatsapp_service.send_message(from_number, summary)
                     return {'success': True, 'action': 'request_final_confirmation'}
 
-                # Estado: Confirmación Final
+                # Estado: Confirmación Final (Sin cambios)
                 if step == 'WAITING_FINAL_CONFIRMATION':
-                    # Palabras de confirmación re-definidas por claridad en este scope
                     confirm_yes = ['si', 'sí', 'ok', 'correcto', 'dale', 'confirmar']
                     confirm_no = ['no', 'corregir', 'mal', 'incorrecto', 'error']
-                    
                     if any(kw == text_lower or text_lower.startswith(kw + " ") for kw in confirm_yes):
-                        # Confirmado -> Ir a checkout definitivo
-                        # Actualizamos estado para prevenir re-entrada si falla algo
-                        self.session_repository.create_or_update_session(
-                            from_number,
-                            conversation_step='PROCESSING_CHECKOUT',
-                            client_data=client_data
-                        )
+                        self.session_repository.create_or_update_session(from_number, conversation_step='PROCESSING_CHECKOUT', client_data=client_data)
                         return await self._handle_checkout(from_number, message_id, customer, client_data)
-                        
                     elif any(kw in text_lower for kw in confirm_no):
-                        # Negado -> Reiniciar Wizard
-                        self.session_repository.create_or_update_session(
-                            from_number,
-                            conversation_step='WAITING_NAME',
-                            # Mantenemos client_data anterior? No, el usuario pidió corregir. O talvez sí para UX, pero el requerimiento dice "Empecemos de nuevo"
-                        )
-                        await self.whatsapp_service.send_message(
-                            from_number,
-                            "Entendido. Empecemos de nuevo. Por favor, indícame tu **Nombre y Apellido** correctos."
-                        )
+                        self.session_repository.create_or_update_session(from_number, conversation_step='WAITING_NAME')
+                        await self.whatsapp_service.send_message(from_number, "Entendido. Empecemos de nuevo. Por favor, indícame tu **Nombre y Apellido** correctos.")
                         return {'success': True, 'action': 'reset_wizard'}
-                    
                     else:
-                        await self.whatsapp_service.send_message(
-                            from_number,
-                            "⚠️ Por favor responde **SÍ** para finalizar o **NO** para corregir los datos."
-                        )
+                        await self.whatsapp_service.send_message(from_number, "⚠️ Por favor responde **SÍ** para finalizar o **NO** para corregir los datos.")
                         return {'success': False, 'action': 'ambiguous_response'}
 
-        # 3. Check: Checkout o Confirmación (Inicio del Wizard)
-        # Si dice "Total" o "Confirmar" -> Iniciar Recolección de Datos
+        # 7. Check: Checkout o Confirmación (Inicio del Wizard)
         is_checkout_explicit = any(keyword in text_lower for keyword in checkout_keywords)
         is_confirmation = any(keyword == text_lower or text_lower.startswith(keyword + " ") for keyword in confirmation_keywords)
         
@@ -205,53 +232,9 @@ class ProcessWhatsAppMessageUseCase:
             if self.session_repository:
                  session = self.session_repository.get_session(from_number)
                  if session and session.get('items'):
-                     # INICIO WIZARD: Pedir Nombre
-                     self.session_repository.create_or_update_session(
-                         from_number, 
-                         conversation_step='WAITING_NAME'
-                     )
-                     await self.whatsapp_service.send_message(
-                        from_number, 
-                        "¡Excelente elección! 📝 Para generar tu recibo, por favor indícame tu **Nombre y Apellido**."
-                     )
+                     self.session_repository.create_or_update_session(from_number, conversation_step='WAITING_NAME')
+                     await self.whatsapp_service.send_message(from_number, "¡Excelente elección! 📝 Para generar tu recibo, por favor indícame tu **Nombre y Apellido**.")
                      return {'success': True, 'action': 'wizard_started'}
-
-        # 4. Check: Saludo
-        if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:
-            return await self._handle_greeting(from_number, message_id, customer)
-
-        # 5. Check: Ubicación / Dirección / Horario (FAQ)
-        location_keywords = ['ubicacion', 'donde', 'direccion', 'local', 'tienda', 'ubicados', 'horario', 'hora', 'abierto']
-        if any(keyword in text_lower for keyword in location_keywords):
-             from ...infrastructure.services.business_info_service import BusinessInfoService
-             business_service = BusinessInfoService()
-             
-             # Obtener info dinámica de BD (con defaults por seguridad)
-             direccion = business_service.get_value("direccion", "Centro Comercial El Socorro, Local 12, Valencia.")
-             horario = business_service.get_value("horario", "Lunes a Sábado de 8:00 AM a 5:00 PM")
-             
-             msg = f"📍 *Nuestra Ubicación:*\n{direccion}\n\n⏰ *Horario de Atención:*\n{horario}"
-             await self.whatsapp_service.send_message(from_number, msg)
-             return {'success': True, 'action': 'location_info'}
-
-        # 6. Check: Delivery / Envíos
-        delivery_keywords = ['delivery', 'envio', 'domicilio', 'traer', 'llevan', 'zonas', 'costo de envio']
-        if any(keyword in text_lower for keyword in delivery_keywords):
-             from ...infrastructure.services.business_info_service import BusinessInfoService
-             business_service = BusinessInfoService()
-             
-             # Verificar Interruptor Maestro
-             has_delivery = business_service.get_value("has_delivery", "true").lower() == "true"
-             
-             if not has_delivery:
-                 msg = "🚫 *Servicio de Delivery No Disponible*\n\nPor el momento no contamos con servicio de entrega a domicilio. Solo realizamos entregas personales en nuestra tienda física."
-             else:
-                 info = business_service.get_value("delivery_info", "Realizamos entregas en toda la ciudad.")
-                 precio = business_service.get_value("delivery_precio", "Consultar tarifa según zona.")
-                 msg = f"🚚 *Servicio de Delivery:*\n{info}\n\n💰 *Tarifas:*\n{precio}"
-                 
-             await self.whatsapp_service.send_message(from_number, msg)
-             return {'success': True, 'action': 'delivery_info'}
 
         # 7. Check: Intención de Cotización
         is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
