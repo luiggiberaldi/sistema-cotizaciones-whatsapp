@@ -63,3 +63,24 @@ services:
     
     # Scaling configuration (Free tier: 1 instance)
     numInstances: 1
+
+  # Frontend React - Web Service
+  - type: web
+    name: sistema-cotizaciones-frontend
+    runtime: node # Necesita Node.js para instalar dependencias de NPM
+    plan: free
+    region: oregon
+    rootDir: frontend # <--- ESTO ES CLAVE: Le dice dónde está el código React
+    buildCommand: npm install && npm run build # Instala y compila el build de Vite
+    startCommand: npx serve -s dist -l 0.0.0.0:$PORT # Comando para servir la carpeta 'dist' de Vite
+    autoDeploy: true
+    envVars:
+      # CRÍTICO: El frontend necesita saber dónde está el backend
+      - key: VITE_API_URL
+        value: https://sistema-cotizaciones-whatsapp.onrender.com/api/v1 # <--- PON TU URL REAL DE RENDER AQUÍ
+    
+    healthCheck:
+      path: /
+      intervalSeconds: 30
+      timeoutSeconds: 10
+      unhealthyThresholdCount: 3

@@ -11,7 +11,7 @@ const normalizePhone = (phone) => {
 const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = [] }) => {
     // Estados del Mensaje
     const [templateName, setTemplateName] = useState('hello_world');
-    const [languageCode, setLanguageCode] = useState('es');
+    const [languageCode, setLanguageCode] = useState('en_US');
     const [parameters, setParameters] = useState('');
     const [sending, setSending] = useState(false);
     const [results, setResults] = useState(null);
@@ -250,7 +250,16 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plantilla de Meta</label>
                                     <select
                                         value={templateName}
-                                        onChange={(e) => setTemplateName(e.target.value)}
+                                        onChange={(e) => {
+                                            const newTemplate = e.target.value;
+                                            setTemplateName(newTemplate);
+                                            // Auto-seleccionar idioma sugerido
+                                            if (newTemplate === 'hello_world') {
+                                                setLanguageCode('en_US');
+                                            } else {
+                                                setLanguageCode('es');
+                                            }
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
                                         disabled={sending}
                                     >
