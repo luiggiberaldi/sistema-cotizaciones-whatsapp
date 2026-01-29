@@ -93,7 +93,10 @@ def _entity_to_response(quote: Quote) -> QuoteResponseSchema:
         status=status_enum,
         notes=quote.notes,
         created_at=quote.created_at,
-        updated_at=quote.updated_at
+        updated_at=quote.updated_at,
+        client_name=quote.client_name,
+        client_dni=quote.client_dni,
+        client_address=quote.client_address
     )
 
 

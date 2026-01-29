@@ -50,6 +50,9 @@ class QuoteResponseSchema(StrictBaseModel):
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    client_name: Optional[str] = None
+    client_dni: Optional[str] = None
+    client_address: Optional[str] = None
     
     model_config = {
         "json_schema_extra": {

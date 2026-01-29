@@ -28,6 +28,13 @@ class SupabaseQuoteRepository(QuoteRepository):
         # Convertir items de dict a QuoteItem
         items = [QuoteItem(**item) for item in data.get("items", [])]
         
+        # Priorizar nombre del cliente de la relación (Join)
+        customer_relation = data.get("customers")
+        final_client_name = data.get("client_name")
+        
+        if customer_relation and isinstance(customer_relation, dict):
+            final_client_name = customer_relation.get("full_name") or final_client_name
+
         return Quote(
             id=data.get("id"),
             client_phone=data["client_phone"],
@@ -38,7 +45,7 @@ class SupabaseQuoteRepository(QuoteRepository):
             updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00")) if data.get("updated_at") else None,
             notes=data.get("notes"),
             customer_id=data.get("customer_id"),
-            client_name=data.get("client_name"),
+            client_name=final_client_name,
             client_dni=data.get("client_dni"),
             client_address=data.get("client_address")
         )
@@ -80,7 +87,9 @@ class SupabaseQuoteRepository(QuoteRepository):
     
     async def get_by_id(self, quote_id: int) -> Optional[Quote]:
         """Obtener una cotización por su ID."""
-        response = self.client.table(self.table_name).select("*").eq("id", quote_id).execute()
+    async def get_by_id(self, quote_id: int) -> Optional[Quote]:
+        """Obtener una cotización por su ID."""
+        response = self.client.table(self.table_name).select("*, customers(full_name)").eq("id", quote_id).execute()
         
         if not response.data:
             return None
@@ -94,7 +103,14 @@ class SupabaseQuoteRepository(QuoteRepository):
         status: Optional[str] = None
     ) -> List[Quote]:
         """Obtener todas las cotizaciones con paginación y filtros."""
-        query = self.client.table(self.table_name).select("*")
+    async def get_all(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        status: Optional[str] = None
+    ) -> List[Quote]:
+        """Obtener todas las cotizaciones con paginación y filtros."""
+        query = self.client.table(self.table_name).select("*, customers(full_name)")
         
         if status:
             query = query.eq("status", status)
@@ -126,7 +142,7 @@ class SupabaseQuoteRepository(QuoteRepository):
         """Obtener todas las cotizaciones de un cliente por teléfono."""
         response = (
             self.client.table(self.table_name)
-            .select("*")
+            .select("*, customers(full_name)")
             .eq("client_phone", client_phone)
             .order("created_at", desc=True)
             .execute()

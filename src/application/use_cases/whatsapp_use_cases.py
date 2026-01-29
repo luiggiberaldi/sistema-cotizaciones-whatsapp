@@ -244,13 +244,30 @@ class ProcessWhatsAppMessageUseCase:
             return {'success': False, 'reason': 'unknown_intent'}
 
     async def _handle_greeting(self, from_number: str, message_id: str, customer: Optional[Dict] = None) -> Dict:
-        greeting_name = ""
-        if customer and customer.get('name'):
-            # Usar primer nombre
-            first_name = customer['name'].split()[0]
-            greeting_name = f" {first_name}"
+        # 1. Enviar Mensaje de Bienvenida Textual
+        if customer and customer.get('full_name'):
+            first_name = customer['full_name'].split()[0]
+            msg = (
+                f"¡Hola, {first_name}! 👋 Bienvenido de vuelta.\n"
+                "📂 Te adjunto nuestro catálogo actualizado.\n"
+                "Ya conoces el proceso: escríbeme qué necesitas y te ayudo al instante. Ej:\n"
+                "👉 'Precio de las gomas'\n"
+                "👉 'Quiero 2 chemises'\n"
+                "¡Estoy listo!"
+            )
+        else:
+            msg = (
+                "¡Hola! 👋 Bienvenido a nuestro sistema de cotizaciones.\n"
+                "📂 Te adjunto nuestro catálogo actualizado.\n"
+                "Para cotizar, escríbeme como si hablaras con un vendedor. Por ejemplo:\n"
+                "👉 'Precio de las gomas'\n"
+                "👉 'Quiero 2 chemises y 1 pantalón'\n"
+                "¡Estoy listo para atenderte!"
+            )
             
-        # 1. Enviar Catálogo PDF
+        await self.whatsapp_service.send_message(from_number, msg)
+
+        # 2. Enviar Catálogo PDF
         try:
             # Obtener productos y generar catálogo
             products = self.quote_service.get_available_products()
@@ -270,17 +287,6 @@ class ProcessWhatsAppMessageUseCase:
                     )
         except Exception as e:
             logger.error(f"Error enviando catálogo: {e}")
-
-        # 2. Enviar Mensaje de Bienvenida Textual
-        msg = (
-            f"¡Hola{greeting_name}! 👋 Bienvenido a nuestro sistema de cotizaciones.\n"
-            "📂 Arriba te adjunto nuestro catálogo actualizado.\n"
-            "Para cotizar, escríbeme como si hablaras con un vendedor. Por ejemplo:\n"
-            "👉 'Precio de las gomas'\n"
-            "👉 'Quiero 2 chemises y 1 pantalón'\n"
-            "¡Estoy listo para atenderte!"
-        )
-        await self.whatsapp_service.send_message(from_number, msg)
         await self.whatsapp_service.mark_message_as_read(message_id)
         return {'success': True, 'action': 'greeting'}
 

@@ -73,6 +73,12 @@ async def health_check():
     }
 
 
+@app.get("/keep-alive", tags=["health"])
+async def keep_alive():
+    """Endpoint ligero para evitar modo suspensión (Cold Start)."""
+    return {"status": "ok", "ping": "pong"}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

@@ -15,8 +15,13 @@ CREATE TABLE IF NOT EXISTS customers (
 -- Habilitar RLS para customers
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public read access for customers" ON customers;
 CREATE POLICY "Public read access for customers" ON customers FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public insert access for customers" ON customers;
 CREATE POLICY "Public insert access for customers" ON customers FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public update access for customers" ON customers;
 CREATE POLICY "Public update access for customers" ON customers FOR UPDATE USING (true);
 
 
