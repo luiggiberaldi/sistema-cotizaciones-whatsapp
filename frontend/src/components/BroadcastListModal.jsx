@@ -128,10 +128,10 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                 {/* Header */}
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-white shrink-0">
                     <div className="flex items-center gap-2">
-                        <div className="bg-primary-100 p-2 rounded-lg">
-                            <Users size={24} className="text-primary-600" />
+                        <div className="bg-primary-100 p-1.5 sm:p-2 rounded-lg">
+                            <Users size={20} className="text-primary-600 sm:w-6 sm:h-6" />
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-800">
+                        <h2 className="text-lg sm:text-2xl font-bold text-gray-800">
                             Difusión 2.0
                         </h2>
                     </div>
@@ -205,7 +205,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                     {customers.map((customer) => (
                                         <label
                                             key={customer.phone_number}
-                                            className={`flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition ${selectedPhones.has(customer.phone_number) ? 'bg-primary-50/30' : ''}`}
+                                            className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition ${selectedPhones.has(customer.phone_number) ? 'bg-primary-50/30' : ''}`}
                                         >
                                             <input
                                                 type="checkbox"
@@ -213,11 +213,11 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                                 onChange={() => toggleCustomer(customer.phone_number)}
                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                             />
-                                            <div className="flex-1">
+                                            <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between">
-                                                    <p className="font-bold text-gray-900 leading-tight">{customer.full_name}</p>
+                                                    <p className="font-bold text-gray-900 leading-tight truncate">{customer.full_name}</p>
                                                 </div>
-                                                <p className="text-sm text-gray-500 font-medium">{customer.phone_number}</p>
+                                                <p className="text-xs sm:text-sm text-gray-500 font-medium">{customer.phone_number}</p>
                                             </div>
                                             {selectedPhones.has(customer.phone_number) && (
                                                 <Check className="text-primary-600" size={20} />

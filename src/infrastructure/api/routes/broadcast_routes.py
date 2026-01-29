@@ -6,8 +6,8 @@ from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from datetime import datetime
-from ....infrastructure.external import WhatsAppService
-from ....infrastructure.database.supabase_quote_repository import SupabaseQuoteRepository
+from ...external import WhatsAppService
+from ...database.supabase_quote_repository import SupabaseQuoteRepository
 from ....domain.base import StrictBaseModel
 
 logger = logging.getLogger(__name__)
@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/broadcast", tags=["broadcast"])
 
 # Inicializar servicios
+# Inicializar servicios
 whatsapp_service = WhatsAppService()
-quote_repo = SupabaseQuoteRepository()
+# El repositorio se inicializa dentro del endpoint para evitar problemas de contexto
 
 
 class ClientInfo(StrictBaseModel):
@@ -53,8 +54,8 @@ class BroadcastResult(StrictBaseModel):
     """Resultado del envío a un cliente."""
     phone: str
     success: bool
-    message_id: str = None
-    error: str = None
+    message_id: Optional[str] = None
+    error: Optional[str] = None
 
 
 class BroadcastResponse(StrictBaseModel):
@@ -99,6 +100,9 @@ async def send_template_broadcast(request: BroadcastTemplateRequest):
         f"con template '{request.template_name}'"
     )
     
+    # Inicializar repositorio localmente
+    quote_repo = SupabaseQuoteRepository()
+    
     for client in request.clients:
         try:
             # Limpiar número de teléfono (remover + y espacios)
@@ -110,9 +114,21 @@ async def send_template_broadcast(request: BroadcastTemplateRequest):
                 if p == '{{name}}':
                     final_params.append(client.name)
                 elif p == '{{total}}':
-                    # Buscar última cotización para obtener el monto
-                    user_quotes = await quote_repo.get_by_phone(phone)
-                    total_str = f"${user_quotes[0].total:.2f}" if user_quotes else "$0.00"
+                    total_str = "$0.00"
+                    try:
+                        if client.quote_id:
+                            # Prioridad 1: Usar ID específico
+                            quote = await quote_repo.get_by_id(client.quote_id)
+                            if quote:
+                                total_str = f"${quote.total:.2f}"
+                        else:
+                            # Prioridad 2: Buscar última cotización por teléfono
+                            user_quotes = await quote_repo.get_by_phone(phone)
+                            if user_quotes:
+                                total_str = f"${user_quotes[0].total:.2f}"
+                    except Exception as e:
+                        logger.warning(f"No se pudo obtener el total para {phone}: {e}")
+                    
                     final_params.append(total_str)
                 elif p == '{{fecha}}':
                     final_params.append(datetime.now().strftime("%d/%m/%Y"))
