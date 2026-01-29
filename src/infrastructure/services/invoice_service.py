@@ -99,3 +99,76 @@ class InvoiceService:
         pdf.output(file_path)
         
         return os.path.abspath(file_path)
+
+    def generate_catalog_pdf(self, products: List[Dict]) -> str:
+        """
+        Genera un PDF con el catálogo de productos.
+        
+        Args:
+            products: Lista de productos (diccionarios).
+            
+        Returns:
+            Ruta del archivo PDF generado.
+        """
+        date_str = datetime.now().strftime("%d/%m/%Y")
+        
+        pdf = FPDF()
+        pdf.add_page()
+        
+        # --- Cabecera ---
+        pdf.set_fill_color(0, 102, 204)
+        pdf.rect(0, 0, 210, 40, 'F')
+        
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Arial", 'B', 24)
+        pdf.set_xy(10, 10)
+        pdf.cell(0, 15, "CATÁLOGO DE PRODUCTOS", align='C', ln=True)
+        
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(0, 10, f"Actualizado al: {date_str}", align='C', ln=True)
+        
+        pdf.ln(20)
+        
+        # --- Tabla de Productos ---
+        pdf.set_text_color(0, 0, 0)
+        
+        # Configuración de columnas
+        col_width_name = 90
+        col_width_price = 40
+        col_width_cat = 60
+        row_height = 10
+        
+        # Cabecera de tabla
+        pdf.set_fill_color(240, 240, 240)
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(col_width_name, row_height, "Producto", 1, 0, 'C', True)
+        pdf.cell(col_width_cat, row_height, "Categoría", 1, 0, 'C', True)
+        pdf.cell(col_width_price, row_height, "Precio", 1, 1, 'C', True)
+        
+        # Filas
+        pdf.set_font("Arial", '', 10)
+        
+        # Ordenar por categoría y nombre
+        sorted_products = sorted(products, key=lambda x: (x.get('category', ''), x.get('name', '')))
+        
+        for product in sorted_products:
+            name = product.get('name', 'Sin nombre')
+            price = product.get('price', 0.0)
+            category = product.get('category') or 'General'
+            
+            pdf.cell(col_width_name, row_height, name, 1)
+            pdf.cell(col_width_cat, row_height, category, 1, 0, 'C')
+            pdf.cell(col_width_price, row_height, f"${price:.2f}", 1, 1, 'R')
+            
+        # --- Footer ---
+        pdf.set_text_color(100, 100, 100)
+        pdf.set_font("Arial", 'I', 8)
+        pdf.set_y(-20)
+        pdf.cell(0, 10, "Precios sujetos a cambio sin previo aviso.", align='C')
+        
+        # Guardar archivo
+        file_name = f"catalogo_{datetime.now().strftime('%Y%m%d')}.pdf"
+        file_path = os.path.join(self.output_dir, file_name)
+        pdf.output(file_path)
+        
+        return os.path.abspath(file_path)

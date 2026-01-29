@@ -143,7 +143,28 @@ class ProcessWhatsAppMessageUseCase:
             first_name = customer['name'].split()[0]
             greeting_name = f" {first_name}"
             
-        msg = f"¡Hola{greeting_name}! 👋 Bienvenido a nuestro sistema de cotizaciones.\n\nPuedes pedirme productos escribiendo algo como: *\"Quiero 2 zapatos y 1 camisa\"*."
+        # 1. Enviar Catálogo PDF
+        try:
+            # Obtener productos y generar catálogo
+            products = self.quote_service.get_available_products()
+            if products:
+                catalog_path = self.invoice_service.generate_catalog_pdf(products)
+                storage_path = f"catalogs/catalogo_actual.pdf"
+                
+                # Subir o actualizar catálogo
+                public_url = await self.storage_service.upload_pdf(catalog_path, storage_path)
+                
+                if public_url:
+                    await self.whatsapp_service.send_document(
+                        to=from_number,
+                        link=public_url,
+                        caption="📂 Aquí tienes nuestro catálogo actualizado."
+                    )
+        except Exception as e:
+            logger.error(f"Error enviando catálogo: {e}")
+
+        # 2. Enviar Mensaje de Bienvenida Textual
+        msg = f"¡Hola{greeting_name}! 👋 Bienvenido a nuestro sistema de cotizaciones.\n\nPara hacer un pedido, solo escribe algo como: *\"Quiero 2 zapatos y 1 camisa\"*."
         await self.whatsapp_service.send_message(from_number, msg)
         await self.whatsapp_service.mark_message_as_read(message_id)
         return {'success': True, 'action': 'greeting'}
