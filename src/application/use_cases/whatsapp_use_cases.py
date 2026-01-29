@@ -130,16 +130,70 @@ class ProcessWhatsAppMessageUseCase:
                     )
                     return {'success': True, 'action': 'saved_dni'}
                 
-                # Estado: Esperando Dirección -> Checkout Final
+                # Estado: Esperando Dirección -> Confirmación Final
                 if step == 'WAITING_ADDRESS':
                     client_data['address'] = text
                     self.session_repository.create_or_update_session(
                         from_number, 
-                        conversation_step='CONFIRMING', # Reset o final
+                        conversation_step='WAITING_FINAL_CONFIRMATION',
                         client_data=client_data
                     )
-                    # Ejecutar checkout definitivo
-                    return await self._handle_checkout(from_number, message_id, customer, client_data)
+                    
+                    # Generar resumen para confirmar
+                    items = session.get('items', [])
+                    total = sum(item['subtotal'] for item in items)
+                    
+                    summary = "📝 **Confirma tus Datos**\n\n"
+                    summary += f"👤 *Nombre:* {client_data.get('name')}\n"
+                    summary += f"🆔 *CI/RIF:* {client_data.get('dni')}\n"
+                    summary += f"📍 *Dirección:* {text}\n\n"
+                    
+                    summary += "📦 *Tu Pedido:*\n"
+                    for item in items:
+                         summary += f"- {item['quantity']} {item['product_name']}\n"
+                    summary += f"\n💰 *Total a registrar:* ${total:.2f}\n\n"
+                    
+                    summary += "👉 Si todo es correcto, escribe **'SÍ'**.\n"
+                    summary += "👉 Si hay algo que corregir, escribe **'NO'**."
+                    
+                    await self.whatsapp_service.send_message(from_number, summary)
+                    return {'success': True, 'action': 'request_final_confirmation'}
+
+                # Estado: Confirmación Final
+                if step == 'WAITING_FINAL_CONFIRMATION':
+                    # Palabras de confirmación re-definidas por claridad en este scope
+                    confirm_yes = ['si', 'sí', 'ok', 'correcto', 'dale', 'confirmar']
+                    confirm_no = ['no', 'corregir', 'mal', 'incorrecto', 'error']
+                    
+                    if any(kw == text_lower or text_lower.startswith(kw + " ") for kw in confirm_yes):
+                        # Confirmado -> Ir a checkout definitivo
+                        # Actualizamos estado para prevenir re-entrada si falla algo
+                        self.session_repository.create_or_update_session(
+                            from_number,
+                            conversation_step='PROCESSING_CHECKOUT',
+                            client_data=client_data
+                        )
+                        return await self._handle_checkout(from_number, message_id, customer, client_data)
+                        
+                    elif any(kw in text_lower for kw in confirm_no):
+                        # Negado -> Reiniciar Wizard
+                        self.session_repository.create_or_update_session(
+                            from_number,
+                            conversation_step='WAITING_NAME',
+                            # Mantenemos client_data anterior? No, el usuario pidió corregir. O talvez sí para UX, pero el requerimiento dice "Empecemos de nuevo"
+                        )
+                        await self.whatsapp_service.send_message(
+                            from_number,
+                            "Entendido. Empecemos de nuevo. Por favor, indícame tu **Nombre y Apellido** correctos."
+                        )
+                        return {'success': True, 'action': 'reset_wizard'}
+                    
+                    else:
+                        await self.whatsapp_service.send_message(
+                            from_number,
+                            "⚠️ Por favor responde **SÍ** para finalizar o **NO** para corregir los datos."
+                        )
+                        return {'success': False, 'action': 'ambiguous_response'}
 
         # 3. Check: Checkout o Confirmación (Inicio del Wizard)
         # Si dice "Total" o "Confirmar" -> Iniciar Recolección de Datos
