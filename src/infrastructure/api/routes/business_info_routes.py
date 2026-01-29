@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from ....domain.entities.business_info import BusinessInfo
 from ...services.business_info_service import BusinessInfoService
-from ..dependencies import get_current_active_user
+from ...security.auth import get_current_user
 
 router = APIRouter(
     prefix="/business-info",
@@ -14,7 +14,7 @@ business_info_service = BusinessInfoService()
 
 @router.get("/", response_model=List[BusinessInfo])
 async def get_all_business_info(
-    current_user: dict = Depends(get_current_active_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Obtener toda la información del negocio.
@@ -30,7 +30,7 @@ async def get_all_business_info(
 @router.put("/", response_model=List[BusinessInfo])
 async def update_business_info(
     updates: List[Dict[str, Any]],
-    current_user: dict = Depends(get_current_active_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Actualizar información del negocio.
