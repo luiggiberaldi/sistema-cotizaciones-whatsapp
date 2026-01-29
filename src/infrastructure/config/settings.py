@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     
     # Configuración de Gemini AI
     gemini_api_key: str = ""
+    gemini_api_key_2: str = ""
     
     model_config = SettingsConfigDict(
         env_file=".env",
