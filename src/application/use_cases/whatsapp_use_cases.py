@@ -1,12 +1,15 @@
 """
 Caso de uso para procesar mensajes de WhatsApp.
 """
+import os
 import logging
 from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
 from ...domain.services import QuoteService
 from ...domain.repositories import QuoteRepository
 from ...infrastructure.external import WhatsAppService, RetryQueue
+from ...infrastructure.services.invoice_service import InvoiceService
+from ...infrastructure.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +33,35 @@ class ProcessWhatsAppMessageUseCase:
         quote_repository: QuoteRepository,
         whatsapp_service: WhatsAppService,
         retry_queue: RetryQueue,
-        session_repository: Optional['SessionRepository'] = None  # Inject session repo
+        session_repository: Optional['SessionRepository'] = None,
+        invoice_service: Optional[InvoiceService] = None,
+        storage_service: Optional[StorageService] = None
     ):
         self.quote_service = quote_service
         self.quote_repository = quote_repository
         self.whatsapp_service = whatsapp_service
         self.retry_queue = retry_queue
         self.session_repository = session_repository
+        self.invoice_service = invoice_service or InvoiceService()
+        self.storage_service = storage_service or StorageService()
 
     async def execute(self, message_data: Dict) -> Dict:
+        from_number = message_data.get('from')
+        try:
+            return await self._execute_implementation(message_data)
+        except Exception as e:
+            logger.error(f"Error procesando mensaje: {e}", exc_info=True)
+            if from_number:
+                try:
+                    await self.whatsapp_service.send_message(
+                        from_number,
+                        "😓 Ocurrió un error técnico. Por favor intenta más tarde."
+                    )
+                except:
+                    pass
+            return {'success': False, 'error': str(e)}
+
+    async def _execute_implementation(self, message_data: Dict) -> Dict:
         from_number = message_data.get('from')
         text = message_data.get('text', '').strip()
         message_id = message_data.get('message_id')
@@ -135,11 +158,35 @@ class ProcessWhatsAppMessageUseCase:
             
             # Send Final Quote
             quote_data = self._entity_to_dict(quote)
+            quote_data['id'] = created_quote.id
+            quote_data['client_phone'] = quote.client_phone
+            
             await self.whatsapp_service.send_quote_message(to=from_number, quote_data=quote_data)
             await self.whatsapp_service.mark_message_as_read(message_id)
 
             # Clear session
             self.session_repository.delete_session(from_number)
+            
+            # --- Generar y Subir PDF ---
+            try:
+                pdf_path = self.invoice_service.generate_invoice_pdf(quote_data)
+                
+                # Nombre de archivo en storage (ej: quotes/584121234567/quote_123.pdf)
+                storage_path = f"quotes/{from_number}/{os.path.basename(pdf_path)}"
+                
+                # IMPORTANTE: Asegurarnos de importar os si se usa basename
+                # Pero ya lo importamos o lo hacemos arriba
+                
+                public_url = await self.storage_service.upload_pdf(pdf_path, storage_path)
+                
+                if public_url:
+                    # Enviar mensaje con el link
+                    link_msg = f"📄 *Tu cotización en PDF:* {public_url}\n\nPuedes descargarla para tus registros."
+                    await self.whatsapp_service.send_message(to=from_number, message=link_msg)
+                
+            except Exception as pdf_err:
+                logger.error(f"Error generando/subiendo PDF: {pdf_err}")
+                # No fallar el checkout si el PDF falla, ya enviamos el resumen por WhatsApp
             
             return {'success': True, 'action': 'checkout', 'quote_id': created_quote.id}
 

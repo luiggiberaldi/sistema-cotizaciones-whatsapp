@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     supabase_key: str
     supabase_service_key: str = ""
     supabase_jwt_secret: str
+    supabase_bucket_name: str = "quotes"
     
     # Configuración de API
     api_v1_prefix: str = "/api/v1"

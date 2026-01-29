@@ -18,6 +18,22 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+# Logging de configuración al inicio
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("main")
+
+@app.on_event("startup")
+async def startup_event():
+    service_key = getattr(settings, 'supabase_service_key', "")
+    is_service_key_set = "✅ SET" if service_key and len(service_key) > 10 else "❌ MISSING/EMPTY"
+    
+    logger.info("=== CONFIGURATION CHECK ===")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Supabase URL: {settings.supabase_url}")
+    logger.info(f"Supabase Service Key: {is_service_key_set}")
+    logger.info("===========================")
+
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
