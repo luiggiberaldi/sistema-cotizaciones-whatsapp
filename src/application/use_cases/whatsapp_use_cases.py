@@ -411,26 +411,7 @@ class ProcessWhatsAppMessageUseCase:
             await self.whatsapp_service.send_message(to=from_number, message="❌ Error generando cotización final.")
             return {'success': False, 'error': str(e)}
 
-    async def _handle_add_items(self, from_number: str, text: str, message_id: str, is_quote_intent: bool = False) -> Dict:
-        try:
-            # 1. Parse new items
-            result = self.quote_service.generate_quote_with_details(
-                text=text,
-                client_phone=f"+{from_number}",
-                fuzzy_threshold=70
-            )
-            new_quote = result['quote']
-
-            # Guardar cotización en base de datos (Persistencia de auditoría y dashboard)
-            # REMOVED: Se elimina la creación parcial para evitar desorden. Solo se guarda al final.
-            # try:
-            #     logger.info(f"Guardando cotización parcial en base de datos para {from_number}...")
-            #     await self.quote_repository.create(new_quote)
-            # except Exception as db_err:
-            #     logger.error(f"Error persistiendo cotización: {db_err}")
-
-
-            
+    
     async def _handle_add_items(self, from_number: str, text: str, message_id: str, is_quote_intent: bool = False) -> Dict:
         text_lower = text.lower()
         delete_keywords = ['elimina', 'quita', 'borra', 'saca', 'remover', 'quitar']
