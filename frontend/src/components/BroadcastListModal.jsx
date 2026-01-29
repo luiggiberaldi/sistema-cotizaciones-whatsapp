@@ -245,70 +245,63 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                             <h3 className="text-lg font-bold text-gray-800">Mensaje Automático</h3>
 
                             {/* Template */}
-                            <div className="flex gap-3">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plantilla de Meta</label>
-                                    <select
-                                        value={templateName}
-                                        onChange={(e) => {
-                                            const newTemplate = e.target.value;
-                                            setTemplateName(newTemplate);
-                                            // Auto-seleccionar idioma sugerido
-                                            if (newTemplate === 'hello_world') {
-                                                setLanguageCode('en_US');
-                                            } else {
-                                                setLanguageCode('es');
-                                            }
-                                        }}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
-                                        disabled={sending}
-                                    >
-                                        <option value="hello_world">👋 Hello World</option>
-                                        <option value="quote_notification">📄 Notificación Cotización</option>
-                                        <option value="payment_reminder">💰 Recordatorio de Pago</option>
-                                    </select>
-                                </div>
-                                <div className="w-24">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Idioma</label>
-                                    <select
-                                        value={languageCode}
-                                        onChange={(e) => setLanguageCode(e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
-                                        disabled={sending}
-                                    >
-                                        <option value="es">ES</option>
-                                        <option value="en_US">EN (US)</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plantilla de Meta</label>
+                                <select
+                                    value={templateName}
+                                    onChange={(e) => {
+                                        const newTemplate = e.target.value;
+                                        setTemplateName(newTemplate);
+                                        // Auto-seleccionar idioma sugerido (Oculto al usuario pero vital)
+                                        if (newTemplate === 'hello_world') {
+                                            setLanguageCode('en_US');
+                                        } else {
+                                            setLanguageCode('es');
+                                        }
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
+                                    disabled={sending}
+                                >
+                                    <option value="hello_world">👋 Hello World (Test - Inglés)</option>
+                                    <option value="quote_notification">📄 Notificación Cotización (Español)</option>
+                                    <option value="payment_reminder">💰 Recordatorio de Pago (Español)</option>
+                                </select>
+                                {templateName === 'hello_world' && (
+                                    <p className="text-[10px] text-amber-600 mt-1 font-medium">
+                                        ⚠️ Modo Test: Solo funciona en Inglés (en_US)
+                                    </p>
+                                )}
                             </div>
 
                             {/* Parámetros */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contenido Extra (Parámetros)</label>
-                                {templateName === 'payment_reminder' ? (
-                                    <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 space-y-2">
-                                        <p className="text-xs text-primary-800 leading-snug">
-                                            ✨ Llenado automático de <strong>Nombre</strong> y <strong>Total</strong> activado.
-                                        </p>
-                                        <input
-                                            type="text"
+                            {templateName !== 'hello_world' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contenido Extra (Parámetros)</label>
+                                    {templateName === 'payment_reminder' ? (
+                                        <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 space-y-2">
+                                            <p className="text-xs text-primary-800 leading-snug">
+                                                ✨ Llenado automático de <strong>Nombre</strong> y <strong>Total</strong> activado.
+                                            </p>
+                                            <input
+                                                type="text"
+                                                value={parameters}
+                                                onChange={(e) => setParameters(e.target.value)}
+                                                placeholder="Fecha: ej 'esta tarde'"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                                disabled={sending}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <textarea
                                             value={parameters}
                                             onChange={(e) => setParameters(e.target.value)}
-                                            placeholder="Fecha: ej 'esta tarde'"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                            placeholder="Separar por comas..."
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
                                             disabled={sending}
                                         />
-                                    </div>
-                                ) : (
-                                    <textarea
-                                        value={parameters}
-                                        onChange={(e) => setParameters(e.target.value)}
-                                        placeholder="Separar por comas..."
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
-                                        disabled={sending}
-                                    />
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Resultados */}
