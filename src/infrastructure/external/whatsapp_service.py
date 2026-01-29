@@ -186,7 +186,8 @@ class WhatsAppService:
         message += f"\n💰 *Total: ${total:.2f}*\n\n"
         
         # Footer
-        message += "¿Deseas confirmar esta cotización? Responde *SÍ* o *NO*"
+        message += "Tu cotización ha sido registrada. "
+        message += "Te enviaremos el PDF oficial en unos instantes... ⏳"
         
         return message
     
