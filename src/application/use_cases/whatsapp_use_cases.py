@@ -234,7 +234,26 @@ class ProcessWhatsAppMessageUseCase:
              await self.whatsapp_service.send_message(from_number, msg)
              return {'success': True, 'action': 'location_info'}
 
-        # 6. Check: Intención de Cotización
+        # 6. Check: Delivery / Envíos
+        delivery_keywords = ['delivery', 'envio', 'domicilio', 'traer', 'llevan', 'zonas', 'costo de envio']
+        if any(keyword in text_lower for keyword in delivery_keywords):
+             from ...infrastructure.services.business_info_service import BusinessInfoService
+             business_service = BusinessInfoService()
+             
+             # Verificar Interruptor Maestro
+             has_delivery = business_service.get_value("has_delivery", "true").lower() == "true"
+             
+             if not has_delivery:
+                 msg = "🚫 *Servicio de Delivery No Disponible*\n\nPor el momento no contamos con servicio de entrega a domicilio. Solo realizamos entregas personales en nuestra tienda física."
+             else:
+                 info = business_service.get_value("delivery_info", "Realizamos entregas en toda la ciudad.")
+                 precio = business_service.get_value("delivery_precio", "Consultar tarifa según zona.")
+                 msg = f"🚚 *Servicio de Delivery:*\n{info}\n\n💰 *Tarifas:*\n{precio}"
+                 
+             await self.whatsapp_service.send_message(from_number, msg)
+             return {'success': True, 'action': 'delivery_info'}
+
+        # 7. Check: Intención de Cotización
         is_quote_intent = any(keyword in text_lower for keyword in quote_keywords)
         
         try:

@@ -135,32 +135,58 @@ const BusinessInfoPage = () => {
 
                 {/* Sección Logística */}
                 <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                        <Truck size={20} className="text-green-500" />
-                        Logística y Envíos
-                    </h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Información de Delivery</label>
-                            <textarea
-                                value={info.delivery_info || ''}
-                                onChange={(e) => handleChange('delivery_info', e.target.value)}
-                                rows={2}
-                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-                                placeholder="¿Hacen delivery? ¿Zonas?"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Precios de Envío</label>
-                            <input
-                                type="text"
-                                value={info.delivery_precio || ''}
-                                onChange={(e) => handleChange('delivery_precio', e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-                                placeholder="Ej: Desde $3 dependiendo la zona"
-                            />
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                            <Truck size={20} className="text-green-500" />
+                            Logística y Envíos
+                        </h3>
+                        {/* Master Switch */}
+                        <div className="flex items-center">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={info.has_delivery !== 'false'}
+                                    onChange={(e) => handleChange('has_delivery', e.target.checked ? 'true' : 'false')}
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                                <span className="ml-3 text-sm font-medium text-gray-700">
+                                    {info.has_delivery !== 'false' ? 'Delivery ACTIVO' : 'Delivery INACTIVO'}
+                                </span>
+                            </label>
                         </div>
                     </div>
+
+                    {info.has_delivery !== 'false' && (
+                        <div className="space-y-4 animate-fade-in">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Información de Delivery</label>
+                                <textarea
+                                    value={info.delivery_info || ''}
+                                    onChange={(e) => handleChange('delivery_info', e.target.value)}
+                                    rows={2}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                                    placeholder="¿Hacen delivery? ¿Zonas?"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Precios de Envío</label>
+                                <input
+                                    type="text"
+                                    value={info.delivery_precio || ''}
+                                    onChange={(e) => handleChange('delivery_precio', e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                                    placeholder="Ej: Desde $3 dependiendo la zona"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {info.has_delivery === 'false' && (
+                        <div className="p-4 bg-gray-50 text-gray-500 text-sm rounded border text-center">
+                            El servicio de delivery está desactivado. El bot responderá que solo hay retiro en tienda.
+                        </div>
+                    )}
                 </div>
 
                 {/* Sección Pagos (Full width) */}
