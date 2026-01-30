@@ -13,7 +13,8 @@ export default function ProductManagementPage() {
         name: '',
         price: '',
         category: '',
-        aliases: ''
+        aliases: '',
+        image_url: ''
     });
 
     useEffect(() => {
@@ -40,7 +41,7 @@ export default function ProductManagementPage() {
     };
 
     const resetForm = () => {
-        setFormData({ name: '', price: '', category: '', aliases: '' });
+        setFormData({ name: '', price: '', category: '', aliases: '', image_url: '' });
         setEditingId(null);
     };
 
@@ -51,7 +52,8 @@ export default function ProductManagementPage() {
                 name: formData.name,
                 price: parseFloat(formData.price),
                 category: formData.category,
-                aliases: formData.aliases.split(',').map(s => s.trim()).filter(Boolean)
+                aliases: formData.aliases.split(',').map(s => s.trim()).filter(Boolean),
+                image_url: formData.image_url || null
             };
 
             if (editingId) {
@@ -73,7 +75,8 @@ export default function ProductManagementPage() {
             name: product.name,
             price: product.price,
             category: product.category || '',
-            aliases: product.aliases ? product.aliases.join(', ') : ''
+            aliases: product.aliases ? product.aliases.join(', ') : '',
+            image_url: product.image_url || ''
         });
         setEditingId(product.id);
     };
@@ -130,6 +133,17 @@ export default function ProductManagementPage() {
                         />
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">URL de Imagen</label>
+                        <input
+                            type="text"
+                            name="image_url"
+                            value={formData.image_url}
+                            onChange={handleInputChange}
+                            placeholder="https://ejemplo.com/imagen.jpg"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Alias (separados por coma)</label>
                         <input
                             type="text"
@@ -176,6 +190,7 @@ export default function ProductManagementPage() {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
@@ -186,6 +201,13 @@ export default function ProductManagementPage() {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {products.map((product) => (
                                 <tr key={product.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {product.image_url ? (
+                                            <img src={product.image_url} alt={product.name} className="h-10 w-10 object-cover rounded" />
+                                        ) : (
+                                            <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No img</div>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.price.toFixed(2)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category || '-'}</td>

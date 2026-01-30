@@ -14,6 +14,7 @@ class Product(StrictBaseModel):
     name: str = Field(..., min_length=1, description="Nombre del producto")
     price: float = Field(..., gt=0, description="Precio unitario")
     category: Optional[str] = Field(None, description="Categoría del producto")
+    image_url: Optional[str] = Field(None, description="URL de la imagen del producto")
     description: Optional[str] = Field(None, description="Descripción del producto")
     aliases: List[str] = Field(default_factory=list, description="Lista de alias para búsqueda")
     stock: Optional[int] = Field(None, ge=0, description="Stock disponible")
