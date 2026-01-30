@@ -39,6 +39,15 @@ class QuoteService:
         # Inicializar parser con el catálogo cargado
         self.parser = TextParser(self.product_cache)
     
+    
+    def invalidate_cache(self):
+        """
+        Invalidar caché de productos para forzar recarga.
+        """
+        self.product_cache = []
+        self.last_cache_update = None
+        print("Caché de productos invalidado.")
+
     def _load_catalog(self) -> List[Dict]:
         """
         Cargar catálogo de productos con caché.
