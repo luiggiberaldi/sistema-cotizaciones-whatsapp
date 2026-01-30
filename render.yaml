@@ -77,7 +77,13 @@ services:
     envVars:
       # CRÍTICO: El frontend necesita saber dónde está el backend
       - key: VITE_API_URL
-        value: https://sistema-cotizaciones-whatsapp.onrender.com/api/v1 # <--- PON TU URL REAL DE RENDER AQUÍ
+        value: https://sistema-cotizaciones-whatsapp.onrender.com/api/v1
+      
+      # Supabase (Necesarios para el build de Vite si se usa supabaseClient.js)
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_KEY
+        sync: false
     
     healthCheck:
       path: /
