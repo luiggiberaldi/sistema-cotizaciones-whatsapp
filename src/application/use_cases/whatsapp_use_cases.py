@@ -102,6 +102,15 @@ class ProcessWhatsAppMessageUseCase:
         is_checkout_explicit = any(keyword in text_lower for keyword in checkout_keywords)
 
         # 2. INTENCIONES PRIORITARIAS (Interrumpen cualquier flujo)
+
+        # F. VACIAR CARRITO
+        empty_cart_keywords = ['vacia', 'vaciar', 'limpiar carrito', 'borrar todo', 'eliminar todo', 'vacía', 'vacíar', 'cancelar pedido']
+        if any(keyword in text_lower for keyword in empty_cart_keywords):
+             if self.session_repository:
+                 self.session_repository.delete_session(from_number)
+             
+             await self.whatsapp_service.send_message(from_number, "🗑️ Tu carrito ha sido vaciado. ¿Qué te gustaría pedir ahora?")
+             return {'success': True, 'action': 'empty_cart'}
         
         # A. Saludo
         if any(keyword in text_lower for keyword in greeting_keywords) and len(text.split()) < 5:

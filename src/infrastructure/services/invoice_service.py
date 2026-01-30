@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from fpdf import FPDF
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pathlib import Path
 
 class InvoiceService:
