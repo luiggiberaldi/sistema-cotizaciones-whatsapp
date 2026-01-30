@@ -125,20 +125,31 @@ class InvoiceService:
         pdf.ln(5)
         
         # --- Tabla de Items ---
-        # Cabecera de tabla
-        pdf.set_fill_color(230, 230, 230)
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(90, 10, "Producto", 1, 0, 'C', True)
-        pdf.cell(30, 10, "Cantidad", 1, 0, 'C', True)
-        pdf.cell(35, 10, "Precio Unit.", 1, 0, 'C', True)
-        pdf.cell(35, 10, "Subtotal", 1, 1, 'C', True)
+        # Helper para dibujar cabecera de items
+        def draw_items_header():
+            pdf.set_fill_color(230, 230, 230)
+            pdf.set_font("Arial", 'B', 10)
+            pdf.cell(90, 10, "Producto", 1, 0, 'C', True)
+            pdf.cell(30, 10, "Cantidad", 1, 0, 'C', True)
+            pdf.cell(35, 10, "Precio Unit.", 1, 0, 'C', True)
+            pdf.cell(35, 10, "Subtotal", 1, 1, 'C', True)
+
+        # Cabecera inicial
+        draw_items_header()
         
         # Items
         pdf.set_font("Arial", '', 10)
         row_height = 15  # Aumentamos altura para la imagen
         image_size = 12
         
+        
         for item in items:
+            # Verificar salto de página
+            if pdf.get_y() + row_height > 270:
+                pdf.add_page()
+                draw_items_header()
+                pdf.set_font("Arial", '', 10)
+
             product_name = self._clean_text(item.get('product_name', 'N/A'))
             image_url = item.get('image_url')
             
@@ -222,12 +233,16 @@ class InvoiceService:
         pdf.set_text_color(0, 0, 0)
         
         # --- Tabla de Productos ---
-        # Cabecera
-        pdf.set_fill_color(240, 240, 240)
-        pdf.set_font("Arial", 'B', 11)
-        pdf.cell(100, 10, "Producto", 1, 0, 'L', True)
-        pdf.cell(50, 10, "Categoría", 1, 0, 'C', True)
-        pdf.cell(40, 10, "Precio", 1, 1, 'R', True)
+        # Helper para dibujar cabecera
+        def draw_header():
+            pdf.set_fill_color(240, 240, 240)
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(100, 10, "Producto", 1, 0, 'L', True)
+            pdf.cell(50, 10, "Categoría", 1, 0, 'C', True)
+            pdf.cell(40, 10, "Precio", 1, 1, 'R', True)
+
+        # Dibujar primera cabecera
+        draw_header()
         
         # Contenido
         pdf.set_font("Arial", '', 10)
@@ -235,6 +250,13 @@ class InvoiceService:
         image_size = 15 # Tamaño imagen
         
         for product in products:
+            # Verificar salto de página
+            # 297mm (A4) - 20mm (margen inferior) = 277mm
+            if pdf.get_y() + row_height > 270:
+                pdf.add_page()
+                draw_header()
+                pdf.set_font("Arial", '', 10)
+
             name = self._clean_text(product.get('name', 'N/A'))
             category = self._clean_text(product.get('category', '-'))
             price = product.get('price', 0.0)
