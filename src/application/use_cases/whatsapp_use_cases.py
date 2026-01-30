@@ -50,7 +50,7 @@ class ProcessWhatsAppMessageUseCase:
         inv_service = invoice_service or InvoiceService()
         sto_service = storage_service or StorageService()
         
-        self.greeting_handler = GreetingHandler(whatsapp_service)
+        self.greeting_handler = GreetingHandler(whatsapp_service, quote_service, inv_service, sto_service)
         self.faq_handler = FAQHandler(whatsapp_service)
         self.catalog_handler = CatalogHandler(whatsapp_service, quote_service, inv_service, sto_service)
         self.wizard_handler = WizardHandler(whatsapp_service, session_repository)

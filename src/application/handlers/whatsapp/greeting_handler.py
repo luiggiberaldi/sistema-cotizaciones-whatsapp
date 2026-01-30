@@ -1,14 +1,29 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from .base_handler import WhatsAppHandler
 from ....infrastructure.external.whatsapp_service import WhatsAppService
+from ....domain.services import QuoteService
+from ....infrastructure.services.invoice_service import InvoiceService
+from ....infrastructure.services.storage_service import StorageService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GreetingHandler(WhatsAppHandler):
     """
-    Maneja los saludos iniciales.
+    Maneja los saludos iniciales y envía el catálogo.
     """
     
-    def __init__(self, whatsapp_service: WhatsAppService):
+    def __init__(
+        self, 
+        whatsapp_service: WhatsAppService,
+        quote_service: QuoteService,
+        invoice_service: InvoiceService,
+        storage_service: StorageService
+    ):
         self.whatsapp_service = whatsapp_service
+        self.quote_service = quote_service
+        self.invoice_service = invoice_service
+        self.storage_service = storage_service
 
     async def handle(self, message_data: Dict) -> Dict:
         from_number = message_data.get('from')
@@ -38,19 +53,29 @@ class GreetingHandler(WhatsAppHandler):
             
         await self.whatsapp_service.send_message(from_number, msg)
         
-        # Nota: El envío del catálogo PDF se movió a CatalogHandler, 
-        # pero mantenemos el mensaje de bienvenida aquí.
-        # Si queremos enviar el catálogo siempre al saludar, deberíamos inyectar CatalogHandler o duplicar lógica
-        # Para propósitos de este refactor y limpieza, el saludo solo saluda e indica que el usuario puede pedir.
-        # PERO, el código original enviaba el catálogo aquí también. 
-        # Vamos a replicar el comportamiento original DELEGANDO esa parte o asumiendo que el usuario pedirá el catálogo.
-        # Revisando el plan: el BaseGreeting enviaba el catálogo.
-        # Para simplificar, dejaremos que el GreetingHandler solo salude y quizas invocar el envío de catálogo desde el Dispatcher si es necesario,
-        # O mejor, hacemos que GreetingHandler TAMBIÉN envíe el catálogo si es fácil.
-        # Vamos a mantener la lógica simple por ahora: Solo texto. 
-        # El usuario pedirá "Dame catálogo" o el dispatcher encadenará acciones.
-        
-        # CORRECCION: El usuario original recibía el catálogo con el saludo.
-        # Es mejor mantener esa experiencia.
-        
+        # 2. Enviar Catálogo PDF
+        try:
+            # Obtener productos y generar catálogo
+            products = self.quote_service.get_available_products()
+            if products:
+                # Generamos el PDF (esto suele ser rápido o cacheado)
+                catalog_path = self.invoice_service.generate_catalog_pdf(products)
+                storage_path = f"catalogs/catalogo_actual.pdf"
+                
+                # Subir o actualizar catálogo (StorageService manejará si ya existe o lo sobreescribe)
+                public_url = await self.storage_service.upload_pdf(catalog_path, storage_path)
+                
+                if public_url:
+                    await self.whatsapp_service.send_document(
+                        to=from_number,
+                        link=public_url,
+                        caption="Catálogo 2026",
+                        filename="Catalogo_Productos_2026.pdf"
+                    )
+            else:
+                logger.warning("No hay productos disponibles para generar el catálogo en el saludo.")
+                
+        except Exception as e:
+            logger.error(f"Error enviando catálogo en saludo: {e}")
+            
         return {'success': True, 'action': 'greeting'}
