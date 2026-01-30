@@ -55,27 +55,37 @@ class GreetingHandler(WhatsAppHandler):
         
         # 2. Enviar Catálogo PDF
         try:
+            logger.info("Intentando enviar catálogo PDF en saludo...")
+            
             # Obtener productos y generar catálogo
             products = self.quote_service.get_available_products()
+            logger.info(f"Productos encontrados: {len(products) if products else 0}")
+            
             if products:
                 # Generamos el PDF (esto suele ser rápido o cacheado)
                 catalog_path = self.invoice_service.generate_catalog_pdf(products)
+                logger.info(f"PDF generado en: {catalog_path}")
+                
                 storage_path = f"catalogs/catalogo_actual.pdf"
                 
                 # Subir o actualizar catálogo (StorageService manejará si ya existe o lo sobreescribe)
                 public_url = await self.storage_service.upload_pdf(catalog_path, storage_path)
+                logger.info(f"URL pública del PDF: {public_url}")
                 
                 if public_url:
-                    await self.whatsapp_service.send_document(
+                    result = await self.whatsapp_service.send_document(
                         to=from_number,
                         link=public_url,
                         caption="Catálogo 2026",
                         filename="Catalogo_Productos_2026.pdf"
                     )
+                    logger.info(f"Resultado envío PDF: {result}")
+                else:
+                    logger.error("No se obtuvo URL pública para el PDF.")
             else:
                 logger.warning("No hay productos disponibles para generar el catálogo en el saludo.")
                 
         except Exception as e:
-            logger.error(f"Error enviando catálogo en saludo: {e}")
+            logger.error(f"Error CRÍTICO enviando catálogo en saludo: {e}", exc_info=True)
             
         return {'success': True, 'action': 'greeting'}
