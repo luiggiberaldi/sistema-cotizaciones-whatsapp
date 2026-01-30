@@ -1,7 +1,7 @@
 import google.generativeai as genai
 from datetime import datetime
 import time
-from ...config.settings import settings
+from ..config.settings import settings
 import logging
 
 logger = logging.getLogger(__name__)
