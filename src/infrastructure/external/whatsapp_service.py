@@ -224,17 +224,68 @@ class WhatsAppService:
         message += "Te enviaremos el PDF oficial en unos instantes... ⏳"
         
         return message
-    
+    async def send_interactive_button(
+        self,
+        to: str,
+        body_text: str,
+        buttons: List[Dict[str, str]]
+    ) -> Dict:
+        """
+        Enviar mensaje con botones interactivos.
+        
+        Args:
+            to: Número de teléfono
+            body_text: Texto del mensaje
+            buttons: Lista de dicts con keys 'id' y 'title'. Max 3 botones.
+            
+        Returns:
+            Respuesta de la API
+        """
+        url = f"{self.base_url}/{self.phone_number_id}/messages"
+        
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        action_buttons = []
+        for btn in buttons[:3]:
+            action_buttons.append({
+                "type": "reply",
+                "reply": {
+                    "id": btn['id'],
+                    "title": btn['title']
+                }
+            })
+            
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {
+                    "text": body_text
+                },
+                "action": {
+                    "buttons": action_buttons
+                }
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            
+            result = response.json()
+            logger.info(f"Botones enviados a {to}: {result}")
+            return result
+
     def extract_message_data(self, webhook_data: Dict) -> Optional[Dict]:
         """
         Extraer datos del mensaje desde el webhook de WhatsApp.
-        
-        Args:
-            webhook_data: Datos del webhook
-            
-        Returns:
-            Diccionario con from, message_id, timestamp, text
-            o None si no es un mensaje de texto
+        Soporta texto y botones interactivos.
         """
         try:
             entry = webhook_data.get('entry', [])[0]
@@ -247,10 +298,20 @@ class WhatsAppService:
                 return None
             
             message = messages[0]
+            msg_type = message.get('type')
             
-            # Solo procesar mensajes de texto
-            if message.get('type') != 'text':
-                logger.info(f"Mensaje no es de texto: {message.get('type')}")
+            text_body = ""
+            button_payload = None
+            
+            if msg_type == 'text':
+                text_body = message.get('text', {}).get('body', '')
+            elif msg_type == 'interactive':
+                interactive = message.get('interactive', {})
+                if interactive.get('type') == 'button_reply':
+                    text_body = interactive.get('button_reply', {}).get('title', '')
+                    button_payload = interactive.get('button_reply', {}).get('id')
+            else:
+                logger.info(f"Tipo de mensaje no soportado: {msg_type}")
                 return None
             
             # Intentar extraer nombre del contacto
@@ -264,12 +325,14 @@ class WhatsAppService:
                 'name': sender_name,
                 'message_id': message.get('id'),
                 'timestamp': message.get('timestamp'),
-                'text': message.get('text', {}).get('body', '')
+                'text': text_body,
+                'button_payload': button_payload
             }
             
         except (IndexError, KeyError) as e:
             logger.error(f"Error extrayendo datos del mensaje: {e}")
             return None
+
     
     async def mark_message_as_read(self, message_id: str) -> Dict:
         """
