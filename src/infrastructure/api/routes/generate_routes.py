@@ -18,7 +18,7 @@ from ...database.product_repository import ProductRepository
 from ...config.database import get_supabase_client
 from fastapi.responses import FileResponse
 from ...database.supabase_quote_repository import SupabaseQuoteRepository
-from ....application.use_cases.get_quote import GetQuoteUseCase
+from ....application.use_cases import GetQuoteUseCase
 from ...services.invoice_service import InvoiceService
 
 # Crear router
