@@ -27,14 +27,14 @@ async def seed_products():
             "name": "Pantalón Blue Jeans",
             "price": 35.00,
             "category": "ropa",
-            "image_url": "https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?auto=format&fit=crop&w=500&q=80",
+            "image_url": "https://sydney.pe/wp-content/uploads/2023/09/4pantalon-C-.jpg",
             "aliases": ["pantalon", "jeans", "vaqueros", "bluejeans"]
         },
         {
             "name": "Cinturón de Cuero",
             "price": 20.00,
             "category": "accesorios",
-            "image_url": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=500&q=80", 
+            "image_url": "https://www.calzadosinglese.com/cdn/shop/files/CI04_NEGRO.jpg?v=1734485068&width=1920", 
             "aliases": ["cinturon", "correa", "belt"]
         },
         {
@@ -48,14 +48,14 @@ async def seed_products():
             "name": "Corbata Elegante",
             "price": 18.00,
             "category": "accesorios",
-            "image_url": "https://images.unsplash.com/photo-1589756823695-278bc70d6777?auto=format&fit=crop&w=500&q=80",
+            "image_url": "https://media.istockphoto.com/id/157180004/es/foto/corbata-roja-sobre-blanco.jpg?s=612x612&w=0&k=20&c=RMd6X-Ff0DuEoE9wWC0NW6330ZXhXRyh83hPSyK4Jfk=",
             "aliases": ["corbata", "tie", "lazo"]
         },
         {
             "name": "Zapatos Deportivos Blancos",
             "price": 45.99,
             "category": "calzado",
-            "image_url": "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=500&q=80",
+            "image_url": "https://cdn.shopify.com/s/files/1/0269/9388/5267/files/STEVEMADDEN_SHOES_BIONIC2_WHITEACTIONLEATHER_SIDE.jpg?width=354&v=1744054625",
             "aliases": ["zapatos", "tenis", "shoes", "zapatillas"]
         },
         {
@@ -69,14 +69,14 @@ async def seed_products():
             "name": "Gorra Negra",
             "price": 15.00,
             "category": "accesorios",
-            "image_url": "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=500&q=80",
+            "image_url": "https://i.pinimg.com/736x/9b/56/e7/9b56e7696cc8903d16b45831da972fde.jpg",
             "aliases": ["gorra", "cap", "visera"]
         },
         {
             "name": "Chaqueta Jean",
             "price": 55.00,
             "category": "ropa",
-            "image_url": "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&w=500&q=80",
+            "image_url": "https://bambino.com.ve/wp-content/uploads/2024/09/077125001.jpg",
             "aliases": ["chaqueta", "jacket", "abrigo"]
         },
         {
@@ -90,7 +90,7 @@ async def seed_products():
             "name": "Medias Tobilleras",
             "price": 8.00,
             "category": "ropa",
-            "image_url": "https://images.unsplash.com/photo-1586350977771-b3b0abd50f82?auto=format&fit=crop&w=500&q=80",
+            "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ2ekAzoVVPBGg1bO01cVpYqjKJ2n2rOtsgjg&s",
             "aliases": ["medias", "calcetines", "socks"]
         }
     ]
