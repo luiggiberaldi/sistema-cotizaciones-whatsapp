@@ -38,9 +38,9 @@ class Settings(BaseSettings):
     whatsapp_api_version: str = "v18.0"
     whatsapp_api_url: str = "https://graph.facebook.com"
     
-    # Configuración de Gemini AI
-    gemini_api_key: str = ""
-    gemini_api_key_2: str = ""
+    # Configuración de AI (Groq)
+    groq_api_key: str = ""
+    # gemini_api_key: str = "" (Deprecated)
     
     model_config = SettingsConfigDict(
         env_file=".env",

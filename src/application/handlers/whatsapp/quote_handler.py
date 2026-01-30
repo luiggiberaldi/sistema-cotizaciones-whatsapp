@@ -6,7 +6,7 @@ from ....infrastructure.external.whatsapp_service import WhatsAppService
 from ....domain.services import QuoteService
 
 if TYPE_CHECKING:
-    from ....infrastructure.external.gemini_service import GeminiService
+    from ....infrastructure.external.groq_service import GroqService
 
 logger = logging.getLogger(__name__)
 
@@ -21,17 +21,17 @@ class QuoteHandler(WhatsAppHandler):
         whatsapp_service: WhatsAppService,
         quote_service: QuoteService,
         session_repository,
-        gemini_service: Optional['GeminiService'] = None
+        groq_service: Optional['GroqService'] = None
     ):
         self.whatsapp_service = whatsapp_service
         self.quote_service = quote_service
         self.session_repository = session_repository
         
-        if gemini_service:
-            self.gemini_service = gemini_service
+        if groq_service:
+            self.groq_service = groq_service
         else:
-            from ....infrastructure.external.gemini_service import GeminiService
-            self.gemini_service = GeminiService()
+            from ....infrastructure.external.groq_service import GroqService
+            self.groq_service = GroqService()
 
     async def handle(self, message_data: Dict) -> Dict:
         from_number = message_data.get('from')
@@ -51,8 +51,8 @@ class QuoteHandler(WhatsAppHandler):
                 return {'success': False, 'reason': 'quote_intent_no_products'}
             
             # Si llegamos aquí y no era quote intent explicito pero el dispatcher lo mandó (ej. fallback general)
-            # Intentamos con Gemini
-            response_text = await self.gemini_service.get_fallback_response(text)
+            # Intentamos con Groq
+            response_text = await self.groq_service.get_fallback_response(text)
             await self.whatsapp_service.send_message(from_number, response_text)
             return {'success': True, 'action': 'fallback_ai'}
 
