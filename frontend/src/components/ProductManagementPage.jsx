@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { productsAPI } from '../services/api';
-import { Trash2, Edit, Plus, Save, X } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, LayoutGrid, List as ListIcon, Search, ShoppingBag, ShoppingCart, Minus, Send, MessageCircle } from 'lucide-react';
 
 export default function ProductManagementPage() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [editingId, setEditingId] = useState(null);
+
+    // Estados de UI
+    const [viewMode, setViewMode] = useState('gallery'); // 'list' | 'gallery'
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Todos');
+
+    // Estado del Carrito
+    const [cart, setCart] = useState({}); // { productId: quantity }
 
     // Estado del formulario
     const [formData, setFormData] = useState({
@@ -79,6 +87,8 @@ export default function ProductManagementPage() {
             image_url: product.image_url || ''
         });
         setEditingId(product.id);
+        // Scroll al formulario si está muy abajo
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleDelete = async (id) => {
@@ -92,151 +102,421 @@ export default function ProductManagementPage() {
         }
     };
 
-    return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Gestión de Productos</h2>
+    // --- Lógica de Filtrado ---
+    const categories = useMemo(() => {
+        const cats = new Set(products.map(p => p.category).filter(Boolean));
+        return ['Todos', ...Array.from(cats).sort()];
+    }, [products]);
 
-            {/* Formulario */}
-            <form onSubmit={handleSubmit} className="mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                        <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleInputChange}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Precio</label>
-                        <input
-                            type="number"
-                            name="price"
-                            value={formData.price}
-                            onChange={handleInputChange}
-                            required
-                            step="0.01"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                        <input
-                            type="text"
-                            name="category"
-                            value={formData.category}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">URL de Imagen</label>
-                        <input
-                            type="text"
-                            name="image_url"
-                            value={formData.image_url}
-                            onChange={handleInputChange}
-                            placeholder="https://ejemplo.com/imagen.jpg"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Alias (separados por coma)</label>
-                        <input
-                            type="text"
-                            name="aliases"
-                            value={formData.aliases}
-                            onChange={handleInputChange}
-                            placeholder="Ej: zapatillas, tennis, calzado"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        />
-                    </div>
-                </div>
-                <div className="mt-4 flex justify-end space-x-3">
-                    {editingId && (
-                        <button
-                            type="button"
-                            onClick={resetForm}
-                            className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-md flex items-center"
-                        >
-                            <X size={18} className="mr-2" /> Cancelar
-                        </button>
-                    )}
+    const filteredProducts = useMemo(() => {
+        return products.filter(product => {
+            const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (product.aliases && product.aliases.some(a => a.toLowerCase().includes(searchTerm.toLowerCase())));
+            const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
+            return matchesSearch && matchesCategory;
+        });
+    }, [products, searchTerm, selectedCategory]);
+
+    // --- Lógica del Carrito ---
+    const addToCart = (product) => {
+        setCart(prev => ({
+            ...prev,
+            [product.id]: (prev[product.id] || 0) + 1
+        }));
+    };
+
+    const removeFromCart = (product) => {
+        setCart(prev => {
+            const newQty = (prev[product.id] || 0) - 1;
+            if (newQty <= 0) {
+                const newCart = { ...prev };
+                delete newCart[product.id];
+                return newCart;
+            }
+            return { ...prev, [product.id]: newQty };
+        });
+    };
+
+    const cartTotal = useMemo(() => {
+        let total = 0;
+        let count = 0;
+        Object.entries(cart).forEach(([id, qty]) => {
+            const p = products.find(p => p.id === parseInt(id));
+            if (p) {
+                total += p.price * qty;
+                count += qty;
+            }
+        });
+        return { total, count };
+    }, [cart, products]);
+
+    const handleCheckout = () => {
+        const lines = [];
+        lines.push("*Hola! Quiero cotizar lo siguiente:*");
+        lines.push("");
+
+        Object.entries(cart).forEach(([id, qty]) => {
+            const p = products.find(p => p.id === parseInt(id));
+            if (p) {
+                lines.push(`• ${qty}x *${p.name}* ($${p.price.toFixed(2)})`);
+            }
+        });
+
+        lines.push("");
+        lines.push(`*Total Estimado: $${cartTotal.total.toFixed(2)}*`);
+
+        const text = encodeURIComponent(lines.join("\n"));
+        // Redirigir a WhatsApp
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    };
+
+    return (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 min-h-screen relative pb-32">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <ShoppingBag className="mr-2 text-primary-600" /> Catálogo de Productos
+                </h2>
+
+                {/* Controles de Vista */}
+                <div className="flex bg-gray-100 p-1 rounded-lg">
                     <button
-                        type="submit"
-                        className="px-4 py-2 bg-primary-600 text-white hover:bg-primary-700 rounded-md flex items-center"
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 rounded-md transition ${viewMode === 'list' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-900'}`}
+                        title="Vista de Lista"
                     >
-                        {editingId ? <Save size={18} className="mr-2" /> : <Plus size={18} className="mr-2" />}
-                        {editingId ? 'Actualizar' : 'Crear'} Producto
+                        <ListIcon size={20} />
+                    </button>
+                    <button
+                        onClick={() => setViewMode('gallery')}
+                        className={`p-2 rounded-md transition ${viewMode === 'gallery' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-900'}`}
+                        title="Vista de Galería"
+                    >
+                        <LayoutGrid size={20} />
                     </button>
                 </div>
-            </form>
+            </div>
+
+            {/* Formulario (Colapsable o siempre visible? Por ahora siempre visible para gestión) */}
+            <div className={`mb-8 bg-gray-50 p-6 rounded-xl border border-gray-200 transition-all ${editingId ? 'ring-2 ring-primary-500' : ''}`}>
+                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                    {editingId ? <Edit size={18} className="mr-2" /> : <Plus size={18} className="mr-2" />}
+                    {editingId ? 'Editar Producto' : 'Agregar Nuevo Producto'}
+                </h3>
+                <form onSubmit={handleSubmit}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Nombre</label>
+                            <input
+                                type="text"
+                                name="name"
+                                value={formData.name}
+                                onChange={handleInputChange}
+                                required
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="Ej: Laptop HP Pavilion"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Precio ($)</label>
+                            <input
+                                type="number"
+                                name="price"
+                                value={formData.price}
+                                onChange={handleInputChange}
+                                required
+                                step="0.01"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Categoría</label>
+                            <input
+                                type="text"
+                                name="category"
+                                value={formData.category}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                placeholder="Ej: Computación"
+                            />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">URL de Imagen</label>
+                            <input
+                                type="text"
+                                name="image_url"
+                                value={formData.image_url}
+                                onChange={handleInputChange}
+                                placeholder="https://..."
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Alias (búsqueda)</label>
+                            <input
+                                type="text"
+                                name="aliases"
+                                value={formData.aliases}
+                                onChange={handleInputChange}
+                                placeholder="Separados por coma"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-4 flex justify-end gap-3">
+                        {editingId && (
+                            <button
+                                type="button"
+                                onClick={resetForm}
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium flex items-center transition"
+                            >
+                                <X size={18} className="mr-1" /> Cancelar
+                            </button>
+                        )}
+                        <button
+                            type="submit"
+                            className="px-6 py-2 bg-primary-600 text-white hover:bg-primary-700 rounded-lg font-medium flex items-center shadow-md transition transform hover:-translate-y-0.5"
+                        >
+                            <Save size={18} className="mr-2" />
+                            {editingId ? 'Actualizar Producto' : 'Guardar Producto'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* Barra de Herramientas de Catálogo */}
+            <div className="flex flex-col gap-4 mb-6">
+                {/* Buscador */}
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm shadow-sm"
+                        placeholder="Buscar por nombre, categoría o alias..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+
+                {/* Categorías (Chips) */}
+                <div className="flex flex-wrap gap-2">
+                    {categories.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategory === cat
+                                ? 'bg-primary-600 text-white shadow'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             {/* Error */}
             {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4">
+                <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 border border-red-200">
                     {error}
                 </div>
             )}
 
-            {/* Tabla */}
+            {/* Contenido Principal */}
             {loading ? (
-                <div className="text-center py-8">Cargando...</div>
+                <div className="flex justify-center items-center py-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+                </div>
+            ) : filteredProducts.length === 0 ? (
+                <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                    <ShoppingBag className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                    <p className="text-gray-500 text-lg">No se encontraron productos.</p>
+                    <button onClick={() => { setSearchTerm(''); setSelectedCategory('Todos'); }} className="mt-2 text-primary-600 hover:underline">
+                        Limpiar filtros
+                    </button>
+                </div>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Alias</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {products.map((product) => (
-                                <tr key={product.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {product.image_url ? (
-                                            <img src={product.image_url} alt={product.name} className="h-10 w-10 object-cover rounded" />
-                                        ) : (
-                                            <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">No img</div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.price.toFixed(2)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category || '-'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500 truncate max-w-xs">{product.aliases?.join(', ') || '-'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button
-                                            onClick={() => handleEdit(product)}
-                                            className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                            title="Editar"
-                                        >
-                                            <Edit size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(product.id)}
-                                            className="text-red-600 hover:text-red-900"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {products.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
-                            No hay productos registrados.
+                <>
+                    {viewMode === 'list' && (
+                        <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Producto</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Categoría</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Precio</th>
+                                        <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredProducts.map((product) => {
+                                        const qty = cart[product.id] || 0;
+                                        return (
+                                            <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center">
+                                                        <div className="flex-shrink-0 h-12 w-12 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                                                            {product.image_url ? (
+                                                                <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                                                            ) : (
+                                                                <div className="h-full w-full flex items-center justify-center text-gray-400"><ShoppingBag size={20} /></div>
+                                                            )}
+                                                        </div>
+                                                        <div className="ml-4">
+                                                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                                            <div className="text-xs text-gray-500 truncate max-w-[200px]">{product.aliases?.join(', ')}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                        {product.category || 'General'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                                                    ${product.price.toFixed(2)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {/* Botón Carrito */}
+                                                        {qty > 0 ? (
+                                                            <div className="flex items-center bg-green-50 rounded-full px-2 py-1 border border-green-200 mr-2">
+                                                                <button onClick={() => removeFromCart(product)} className="text-green-700 hover:text-green-900 p-1"><Minus size={14} /></button>
+                                                                <span className="mx-2 text-sm font-bold text-green-800">{qty}</span>
+                                                                <button onClick={() => addToCart(product)} className="text-green-700 hover:text-green-900 p-1"><Plus size={14} /></button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => addToCart(product)}
+                                                                className="text-white bg-green-500 hover:bg-green-600 p-2 rounded-full transition mr-2 shadow-sm"
+                                                                title="Agregar al carrito"
+                                                            >
+                                                                <ShoppingCart size={18} />
+                                                            </button>
+                                                        )}
+
+                                                        <button onClick={() => handleEdit(product)} className="text-indigo-600 hover:text-indigo-900 p-2 hover:bg-indigo-50 rounded-full transition">
+                                                            <Edit size={18} />
+                                                        </button>
+                                                        <button onClick={() => handleDelete(product.id)} className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full transition">
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
+
+                    {viewMode === 'gallery' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {filteredProducts.map((product) => {
+                                const qty = cart[product.id] || 0;
+                                return (
+                                    <div key={product.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden flex flex-col">
+                                        {/* Imagen */}
+                                        <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                                            {product.image_url ? (
+                                                <img
+                                                    src={product.image_url}
+                                                    alt={product.name}
+                                                    className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-gray-300">
+                                                    <ShoppingBag size={48} />
+                                                </div>
+                                            )}
+                                            {/* Overlay de acciones rápidas */}
+                                            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                <button
+                                                    onClick={() => handleEdit(product)}
+                                                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow hover:bg-white text-indigo-600 transition"
+                                                    title="Editar"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(product.id)}
+                                                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow hover:bg-white text-red-600 transition"
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+
+                                            {/* Overlay de Cantidad si está en carrito */}
+                                            {qty > 0 && (
+                                                <div className="absolute top-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md z-10">
+                                                    En carrito: {qty}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Contenido */}
+                                        <div className="p-4 flex flex-col flex-grow">
+                                            <div className="text-xs font-semibold text-primary-600 uppercase tracking-widest mb-1">
+                                                {product.category || 'General'}
+                                            </div>
+                                            <h3 className="font-bold text-gray-900 leading-tight mb-2 line-clamp-2" title={product.name}>
+                                                {product.name}
+                                            </h3>
+                                            <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
+                                                <span className="text-xl font-extrabold text-gray-900">
+                                                    ${product.price.toFixed(2)}
+                                                </span>
+
+                                                {qty === 0 ? (
+                                                    <button
+                                                        onClick={() => addToCart(product)}
+                                                        className="bg-primary-600 text-white p-2 rounded-full hover:bg-primary-700 transition shadow-sm"
+                                                        title="Agregar al Carrito"
+                                                    >
+                                                        <Plus size={20} />
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex items-center bg-gray-100 rounded-full">
+                                                        <button onClick={() => removeFromCart(product)} className="p-2 text-gray-600 hover:text-red-600 transition"><Minus size={16} /></button>
+                                                        <span className="px-2 font-bold text-sm w-4 text-center">{qty}</span>
+                                                        <button onClick={() => addToCart(product)} className="p-2 text-gray-600 hover:text-green-600 transition"><Plus size={16} /></button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* Floating Cart Button */}
+            {cartTotal.count > 0 && (
+                <div className="fixed bottom-6 right-6 z-50">
+                    <button
+                        onClick={handleCheckout}
+                        className="bg-green-600 hover:bg-green-700 text-white rounded-full shadow-2xl p-4 flex items-center gap-3 transition-all transform hover:scale-105 animate-bounce-slow"
+                    >
+                        <div className="relative">
+                            <ShoppingCart size={24} />
+                            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-green-600">
+                                {cartTotal.count}
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-start mr-2">
+                            <span className="text-xs font-medium text-green-100">Total Estimado</span>
+                            <span className="text-lg font-bold">${cartTotal.total.toFixed(2)}</span>
+                        </div>
+                        <div className="bg-white/20 p-2 rounded-full">
+                            <Send size={18} className="ml-0.5" />
+                        </div>
+                    </button>
                 </div>
             )}
         </div>
