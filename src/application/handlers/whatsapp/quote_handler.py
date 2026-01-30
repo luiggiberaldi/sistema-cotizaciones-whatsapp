@@ -1,10 +1,12 @@
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, TYPE_CHECKING
 from datetime import datetime, timedelta
 import logging
 from .base_handler import WhatsAppHandler
 from ....infrastructure.external.whatsapp_service import WhatsAppService
 from ....domain.services import QuoteService
-from ....infrastructure.external.gemini_service import GeminiService
+
+if TYPE_CHECKING:
+    from ....infrastructure.external.gemini_service import GeminiService
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +21,17 @@ class QuoteHandler(WhatsAppHandler):
         whatsapp_service: WhatsAppService,
         quote_service: QuoteService,
         session_repository,
-        gemini_service: GeminiService = None
+        gemini_service: Optional['GeminiService'] = None
     ):
         self.whatsapp_service = whatsapp_service
         self.quote_service = quote_service
         self.session_repository = session_repository
-        self.gemini_service = gemini_service or GeminiService()
+        
+        if gemini_service:
+            self.gemini_service = gemini_service
+        else:
+            from ....infrastructure.external.gemini_service import GeminiService
+            self.gemini_service = GeminiService()
 
     async def handle(self, message_data: Dict) -> Dict:
         from_number = message_data.get('from')
