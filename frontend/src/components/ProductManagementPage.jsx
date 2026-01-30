@@ -100,6 +100,31 @@ export default function ProductManagementPage() {
         }
     };
 
+    const handleDeleteAll = async () => {
+        if (!window.confirm('⚠️ ¿ESTÁS SEGURO? Esto eliminará TODOS los productos del inventario. Esta acción no se puede deshacer.')) return;
+
+        // Doble confirmación para seguridad
+        if (!window.confirm('Por favor confirma de nuevo: ¿Eliminar TODO el inventario permanentemente?')) return;
+
+        setLoading(true);
+        try {
+            // Eliminamos uno por uno (o idealmente un endpoint masivo si existiera)
+            // Como no tenemos endpoint masivo expuesto en api.js, lo hacemos iterando
+            // Nota: Para grandes inventarios esto debería ser un endpoint de backend
+            const deletePromises = products.map(p => productsAPI.delete(p.id));
+            await Promise.all(deletePromises);
+
+            await loadProducts();
+            setError(null);
+            alert('Inventario eliminado correctamente.');
+        } catch (err) {
+            console.error(err);
+            setError('Error eliminando inventario masivo');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --- Lógica de Filtrado ---
     const categories = useMemo(() => {
         const cats = new Set(products.map(p => p.category).filter(Boolean));
@@ -125,21 +150,33 @@ export default function ProductManagementPage() {
                 </h2>
 
                 {/* Controles de Vista */}
-                <div className="flex bg-gray-100 p-1 rounded-lg">
+                <div className="flex gap-3">
+                    {/* Botón Eliminar Todo */}
                     <button
-                        onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-md transition ${viewMode === 'list' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-900'}`}
-                        title="Vista de Lista"
+                        onClick={handleDeleteAll}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition border border-red-200 text-sm font-medium"
+                        title="Eliminar todo el inventario"
                     >
-                        <ListIcon size={20} />
+                        <Trash2 size={16} />
+                        <span className="hidden md:inline">Eliminar Todo</span>
                     </button>
-                    <button
-                        onClick={() => setViewMode('gallery')}
-                        className={`p-2 rounded-md transition ${viewMode === 'gallery' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-900'}`}
-                        title="Vista de Galería"
-                    >
-                        <LayoutGrid size={20} />
-                    </button>
+
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-md transition ${viewMode === 'list' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-900'}`}
+                            title="Vista de Lista"
+                        >
+                            <ListIcon size={20} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('gallery')}
+                            className={`p-2 rounded-md transition ${viewMode === 'gallery' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-900'}`}
+                            title="Vista de Galería"
+                        >
+                            <LayoutGrid size={20} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
