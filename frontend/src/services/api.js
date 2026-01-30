@@ -2,9 +2,9 @@ import axios from 'axios';
 import { supabase } from '../lib/supabaseClient';
 
 // Configuración de URL base de la API
-// Forzamos el uso del proxy en desarrollo
-const API_BASE_URL = '/api/v1';
-// const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+// Configuración de URL base de la API
+// En producción usa VITE_API_URL, en desarrollo local usa el proxy
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
