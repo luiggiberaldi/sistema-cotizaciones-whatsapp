@@ -9,8 +9,16 @@ class InvoiceService:
     Servicio para generar PDFs de cotizaciones/facturas.
     """
     
-    def __init__(self, output_dir: str = "temp_pdfs"):
-        self.output_dir = output_dir
+    def __init__(self, output_dir: Optional[str] = None):
+        # En producción (Paas como Render), usualmente solo /tmp es escribible
+        if output_dir is None:
+            if os.name == 'nt':  # Windows local
+                self.output_dir = "temp_pdfs"
+            else:  # Linux/Unix (Render/Production)
+                self.output_dir = "/tmp/temp_pdfs"
+        else:
+            self.output_dir = output_dir
+            
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _clean_text(self, text: str) -> str:

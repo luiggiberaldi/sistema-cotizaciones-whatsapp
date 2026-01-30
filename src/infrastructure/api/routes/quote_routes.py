@@ -284,10 +284,14 @@ async def generate_quote_pdf(quote_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generando PDF: {e}")
+        import traceback
+        error_msg = f"Error generando PDF: {str(e)}"
+        error_trace = traceback.format_exc()
+        logger.error(f"{error_msg}\n{error_trace}")
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generando PDF: {str(e)}"
+            detail=error_msg
         )
 
 
