@@ -352,7 +352,6 @@ function App() {
                                 quotes={quotes}
                                 selectedQuotes={selectedQuotes}
                                 onSelectQuote={handleSelectQuote}
-                                onPrintDeliveryNote={(id) => quotesAPI.generateDeliveryNote(id)}
                             />
                         )}
 

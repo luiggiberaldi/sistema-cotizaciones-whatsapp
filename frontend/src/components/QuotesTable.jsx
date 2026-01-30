@@ -97,9 +97,6 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote, onPrintDeliveryNot
                             <th className="px-2 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                                 Fecha
                             </th>
-                            <th className="px-2 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Acciones
-                            </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -147,18 +144,6 @@ const QuotesTable = ({ quotes, selectedQuotes, onSelectQuote, onPrintDeliveryNot
                                 </td>
                                 <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-[10px] sm:text-sm text-gray-500 hidden sm:table-cell">
                                     {formatDate(quote.created_at)}
-                                </td>
-                                <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onPrintDeliveryNote(quote.id);
-                                        }}
-                                        className="text-primary-600 hover:text-white hover:bg-primary-600 p-1.5 sm:p-2 rounded-lg border border-primary-100 hover:border-primary-600 transition"
-                                        title="Generar Nota de Entrega"
-                                    >
-                                        <FileText size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                    </button>
                                 </td>
                             </tr>
                         ))}

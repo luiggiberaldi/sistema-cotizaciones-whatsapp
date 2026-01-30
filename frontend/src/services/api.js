@@ -64,13 +64,6 @@ export const quotesAPI = {
         const response = await api.delete(`/quotes/${id}`);
         return response.data;
     },
-    // Generate Delivery Note PDF
-    generateDeliveryNote: (id) => {
-        // Direct download via window.open since it's a GET request returning a file
-        // We use the full URL including the API base path
-        const url = `${api.defaults.baseURL}/generate/delivery-note/${id}`;
-        window.open(url, '_blank');
-    },
 };
 
 export const broadcastAPI = {
