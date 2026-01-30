@@ -11,6 +11,7 @@ class InvoiceService:
     
     def __init__(self, output_dir: Optional[str] = None):
         # En producción (Paas como Render), usualmente solo /tmp es escribible
+        # Ensure we use a writable directory
         if output_dir is None:
             if os.name == 'nt':  # Windows local
                 self.output_dir = "temp_pdfs"
