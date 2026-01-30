@@ -254,21 +254,21 @@ class ProcessWhatsAppMessageUseCase:
         if customer and customer.get('full_name'):
             first_name = customer['full_name'].split()[0]
             msg = (
-                f"¡Hola, {first_name}! 👋 Bienvenido de vuelta.\n"
-                "📂 Te adjunto nuestro catálogo actualizado.\n"
-                "Ya conoces el proceso: escríbeme qué necesitas y te ayudo al instante. Ej:\n"
-                "👉 'Precio de las gomas'\n"
-                "👉 'Quiero 2 chemises'\n"
-                "¡Estoy listo!"
+                f"¡Hola de nuevo, {first_name}! 👋\n\n"
+                "Adjunto encontrarás nuestro catálogo actualizado 📂.\n\n"
+                "Estoy listo para tomar tu pedido. Dime qué necesitas.\n\n"
+                "Ejemplos:\n"
+                "🔹 'Precio de los zapatos'\n"
+                "🔹 'Quiero 2 chemises'"
             )
         else:
             msg = (
-                "¡Hola! 👋 Bienvenido a nuestro sistema de cotizaciones.\n"
-                "📂 Te adjunto nuestro catálogo actualizado.\n"
-                "Para cotizar, escríbeme como si hablaras con un vendedor. Por ejemplo:\n"
-                "👉 'Precio de las gomas'\n"
-                "👉 'Quiero 2 chemises y 1 pantalón'\n"
-                "¡Estoy listo para atenderte!"
+                "¡Hola! 👋 Bienvenido.\n\n"
+                "Aquí tienes nuestro catálogo actualizado 📂.\n\n"
+                "Puedes pedirme lo que necesites como si hablaras con un vendedor.\n\n"
+                "Ejemplos:\n"
+                "🔹 'Precio de los zapatos'\n"
+                "🔹 'Quiero 2 chemises'"
             )
             
         await self.whatsapp_service.send_message(from_number, msg)
@@ -288,7 +288,7 @@ class ProcessWhatsAppMessageUseCase:
                     await self.whatsapp_service.send_document(
                         to=from_number,
                         link=public_url,
-                        caption="📂 A continuación, el catálogo actualizado:",
+                        caption="Aquí tienes nuestro catálogo 2026 📂",
                         filename="Catalogo_Productos_2026.pdf"
                     )
         except Exception as e:

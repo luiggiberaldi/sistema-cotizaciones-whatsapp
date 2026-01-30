@@ -7,7 +7,7 @@ import ProductManagementPage from './components/ProductManagementPage';
 import BusinessInfoPage from './components/BusinessInfoPage';
 import CustomersPage from './components/CustomersPage';
 import { quotesAPI, broadcastAPI } from './services/api';
-import { MessageSquare, RefreshCw, LogOut, AlertCircle, ShoppingBag, LayoutDashboard, Store, Trash2, Users } from 'lucide-react';
+import { MessageSquare, RefreshCw, LogOut, AlertCircle, ShoppingBag, LayoutDashboard, Store, Trash2, Users, Download } from 'lucide-react';
 
 function App() {
     const [session, setSession] = useState(null);
@@ -20,6 +20,8 @@ function App() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'products' | 'business-info'
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+    const [showInstallBtn, setShowInstallBtn] = useState(false);
 
     // Manejo de sesión
     useEffect(() => {
@@ -34,7 +36,19 @@ function App() {
             setSession(session);
         });
 
-        return () => subscription.unsubscribe();
+        // PWA Install logic
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            setShowInstallBtn(true);
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        return () => {
+            subscription.unsubscribe();
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
     }, []);
 
     // Cargar datos solo si hay sesión
@@ -145,6 +159,16 @@ function App() {
         await supabase.auth.signOut();
     };
 
+    const handleInstallClick = async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            setDeferredPrompt(null);
+            setShowInstallBtn(false);
+        }
+    };
+
     if (loadingSession) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -217,6 +241,15 @@ function App() {
                         <span className="text-sm text-gray-500 hidden sm:block">
                             {session.user.email}
                         </span>
+                        {showInstallBtn && (
+                            <button
+                                onClick={handleInstallClick}
+                                className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition animate-bounce"
+                                title="Instalar Aplicación"
+                            >
+                                <Download size={20} />
+                            </button>
+                        )}
                         <button
                             onClick={loadQuotes}
                             disabled={loading}
@@ -319,6 +352,7 @@ function App() {
                                 quotes={quotes}
                                 selectedQuotes={selectedQuotes}
                                 onSelectQuote={handleSelectQuote}
+                                onPrintDeliveryNote={(id) => quotesAPI.generateDeliveryNote(id)}
                             />
                         )}
 

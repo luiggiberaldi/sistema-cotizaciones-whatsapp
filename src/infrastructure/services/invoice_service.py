@@ -131,74 +131,105 @@ class InvoiceService:
         
         return os.path.abspath(file_path)
 
-    def generate_catalog_pdf(self, products: List[Dict]) -> str:
+    def generate_delivery_note_pdf(self, quote_data: Dict) -> str:
         """
-        Genera un PDF con el catálogo de productos.
+        Genera una Nota de Entrega (sin precios) para una cotización.
         
         Args:
-            products: Lista de productos (diccionarios).
+            quote_data: Diccionario con los datos de la cotización.
             
         Returns:
             Ruta del archivo PDF generado.
         """
-        date_str = datetime.now().strftime("%d/%m/%Y")
+        quote_id = quote_data.get('id', 'N/A')
+        client_phone = quote_data.get('client_phone', 'N/A')
+        items = quote_data.get('items', [])
+        date_str = datetime.now().strftime("%d/%m/%Y %H:%M")
         
         pdf = FPDF()
         pdf.add_page()
         
         # --- Cabecera ---
-        pdf.set_fill_color(0, 102, 204)
-        pdf.rect(0, 0, 210, 40, 'F')
-        
+        # Logo placeholder (un rectángulo verde para diferenciar)
+        pdf.set_fill_color(46, 204, 113) # Verde
+        pdf.rect(10, 10, 40, 20, 'F')
         pdf.set_text_color(255, 255, 255)
-        pdf.set_font("Arial", 'B', 24)
+        pdf.set_font("Arial", 'B', 10)
         pdf.set_xy(10, 10)
-        pdf.cell(0, 15, "CATÁLOGO DE PRODUCTOS", align='C', ln=True)
+        pdf.cell(40, 20, "LOGO EMPRESA", align='C')
         
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(0, 10, f"Actualizado al: {date_str}", align='C', ln=True)
-        
-        pdf.ln(20)
-        
-        # --- Tabla de Productos ---
+        # Título del Documento
         pdf.set_text_color(0, 0, 0)
+        pdf.set_font("Arial", 'B', 16)
+        pdf.set_xy(60, 10)
+        pdf.cell(0, 10, self._clean_text("NOTA DE ENTREGA"), ln=True, align='R')
         
-        # Configuración de columnas
-        col_width_name = 90
-        col_width_price = 40
-        col_width_cat = 60
-        row_height = 10
+        pdf.set_font("Arial", '', 10)
+        pdf.set_xy(60, 20)
+        pdf.cell(0, 5, f"Ref. Cotización: #{quote_id}", ln=True, align='R')
+        pdf.cell(0, 5, f"Fecha: {date_str}", ln=True, align='R')
         
+        pdf.ln(15)
+        
+        # --- Datos del Cliente ---
+        client_name = quote_data.get('client_name') or 'N/A'
+        client_dni = quote_data.get('client_dni') or 'N/A'
+        client_address = quote_data.get('client_address') or 'N/A'
+        
+        # Limpiar textos
+        client_name = self._clean_text(client_name)
+        client_dni = self._clean_text(client_dni)
+        client_address = self._clean_text(client_address)
+        
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(0, 10, self._clean_text("Datos de Despacho"), ln=True)
+        
+        pdf.set_font("Arial", '', 11)
+        pdf.cell(30, 6, "Cliente:", 0, 0)
+        pdf.cell(0, 6, client_name, ln=True)
+        
+        pdf.cell(30, 6, "CI/RIF:", 0, 0)
+        pdf.cell(0, 6, client_dni, ln=True)
+        
+        pdf.cell(30, 6, self._clean_text("Dirección:"), 0, 0)
+        pdf.multi_cell(0, 6, client_address)
+        
+        pdf.ln(5)
+        
+        # --- Tabla de Items (SIN PRECIOS) ---
         # Cabecera de tabla
         pdf.set_fill_color(240, 240, 240)
-        pdf.set_font("Arial", 'B', 11)
-        pdf.cell(col_width_name, row_height, "Producto", 1, 0, 'C', True)
-        pdf.cell(col_width_cat, row_height, "Categoría", 1, 0, 'C', True)
-        pdf.cell(col_width_price, row_height, "Precio", 1, 1, 'C', True)
+        pdf.set_font("Arial", 'B', 10)
+        # Ajustamos anchos para ocupar el espacio de los precios
+        pdf.cell(140, 10, "Producto / Descripción", 1, 0, 'C', True)
+        pdf.cell(50, 10, "Cantidad", 1, 1, 'C', True)
         
-        # Filas
+        # Items
         pdf.set_font("Arial", '', 10)
-        
-        # Ordenar por categoría y nombre
-        sorted_products = sorted(products, key=lambda x: (x.get('category', ''), x.get('name', '')))
-        
-        for product in sorted_products:
-            name = self._clean_text(product.get('name', 'Sin nombre'))
-            price = product.get('price', 0.0)
-            category = self._clean_text(product.get('category') or 'General')
+        for item in items:
+            product_name = self._clean_text(item['product_name'])
+            # Usamos multi_cell para nombres largos si fuera necesario, pero por ahora cell simple
+            pdf.cell(140, 8, product_name, 1)
+            pdf.cell(50, 8, str(item['quantity']), 1, 0, 'C')
+            pdf.ln() # Salto de línea manual al final de la fila
             
-            pdf.cell(col_width_name, row_height, name, 1)
-            pdf.cell(col_width_cat, row_height, category, 1, 0, 'C')
-            pdf.cell(col_width_price, row_height, f"${price:.2f}", 1, 1, 'R')
-            
-        # --- Footer ---
-        pdf.set_text_color(100, 100, 100)
-        pdf.set_font("Arial", 'I', 8)
-        pdf.set_y(-20)
-        pdf.cell(0, 10, self._clean_text("Precios sujetos a cambio sin previo aviso."), align='C')
+        # --- Footer de Recepción ---
+        pdf.ln(20)
+        
+        # Líneas de firma
+        y_pos = pdf.get_y()
+        pdf.line(20, y_pos, 90, y_pos)
+        pdf.line(120, y_pos, 190, y_pos)
+        
+        pdf.set_font("Arial", '', 9)
+        pdf.set_xy(20, y_pos + 2)
+        pdf.cell(70, 5, "Despachado por", align='C')
+        
+        pdf.set_xy(120, y_pos + 2)
+        pdf.cell(70, 5, "Recibido Conforme", align='C')
         
         # Guardar archivo
-        file_name = f"catalogo_{datetime.now().strftime('%Y%m%d')}.pdf"
+        file_name = f"delivery_{quote_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
         file_path = os.path.join(self.output_dir, file_name)
         pdf.output(file_path)
         
