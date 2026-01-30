@@ -3,6 +3,9 @@ from datetime import datetime
 from fpdf import FPDF
 from typing import Dict, List, Optional
 from pathlib import Path
+import requests
+import tempfile
+import shutil
 
 class InvoiceService:
     """
@@ -31,6 +34,26 @@ class InvoiceService:
             return ""
         # Codificar a latin-1 reemplazando errores, luego decodificar para tener string compatible
         return text.encode('latin-1', 'replace').decode('latin-1')
+
+    def _download_image(self, url: str) -> Optional[str]:
+        """
+        Descarga una imagen temporalmente para insertarla en el PDF.
+        Retorna la ruta del archivo temporal o None si falla.
+        """
+        if not url:
+            return None
+        try:
+            response = requests.get(url, stream=True, timeout=5)
+            if response.status_code == 200:
+                # Crear archivo temporal
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                with open(temp_file.name, 'wb') as f:
+                    shutil.copyfileobj(response.raw, f)
+                return temp_file.name
+        except Exception as e:
+            print(f"Error descargando imagen {url}: {e}")
+            return None
+        return None
 
     def generate_invoice_pdf(self, quote_data: Dict) -> str:
         """
@@ -112,12 +135,48 @@ class InvoiceService:
         
         # Items
         pdf.set_font("Arial", '', 10)
+        row_height = 15  # Aumentamos altura para la imagen
+        image_size = 12
+        
         for item in items:
-            product_name = self._clean_text(item['product_name'])
-            pdf.cell(90, 8, product_name, 1)
-            pdf.cell(30, 8, str(item['quantity']), 1, 0, 'C')
-            pdf.cell(35, 8, f"${item['unit_price']:.2f}", 1, 0, 'R')
-            pdf.cell(35, 8, f"${item['subtotal']:.2f}", 1, 1, 'R')
+            product_name = self._clean_text(item.get('product_name', 'N/A'))
+            image_url = item.get('image_url')
+            
+            # Guardamos posición Y actual
+            y_start = pdf.get_y()
+            x_start = pdf.get_x()
+            
+            # --- Celda Producto (con imagen) ---
+            # Dibujamos el borde de la celda producto primero
+            pdf.cell(90, row_height, "", 1)
+            
+            # Intentar poner imagen
+            img_path = self._download_image(image_url) if image_url else None
+            if img_path:
+                try:
+                    # Imagen a la izquierda con padding
+                    pdf.image(img_path, x=x_start + 2, y=y_start + 1.5, w=image_size, h=image_size)
+                    # Texto desplazado
+                    pdf.set_xy(x_start + image_size + 4, y_start)
+                    # Usamos MultiCell por si el nombre es largo, centrado verticalmente aprox
+                    pdf.cell(90 - image_size - 4, row_height, product_name, 0, 0, 'L')
+                    # Eliminar temp file
+                    os.unlink(img_path)
+                except Exception as e:
+                    print(f"Error insertando imagen en PDF: {e}")
+                    pdf.set_xy(x_start + 2, y_start)
+                    pdf.cell(88, row_height, product_name, 0, 0, 'L')
+            else:
+                # Sin imagen, texto normal
+                pdf.set_xy(x_start + 2, y_start)
+                pdf.cell(88, row_height, product_name, 0, 0, 'L')
+                
+            # Volver a posición tras celda producto para las siguientes celdas
+            pdf.set_xy(x_start + 90, y_start)
+            
+            pdf.cell(30, row_height, str(item.get('quantity', 0)), 1, 0, 'C')
+            pdf.cell(35, row_height, f"${item.get('unit_price', 0):.2f}", 1, 0, 'R')
+            pdf.cell(35, row_height, f"${item.get('subtotal', 0):.2f}", 1, 1, 'R')
             
         # --- Total ---
         pdf.ln(2)
@@ -172,18 +231,47 @@ class InvoiceService:
         
         # Contenido
         pdf.set_font("Arial", '', 10)
+        row_height = 18 # Altura fila
+        image_size = 15 # Tamaño imagen
+        
         for product in products:
             name = self._clean_text(product.get('name', 'N/A'))
             category = self._clean_text(product.get('category', '-'))
             price = product.get('price', 0.0)
+            image_url = product.get('image_url')
+            
+            # Búsqueda de imagen
+            img_path = self._download_image(image_url) if image_url else None
             
             # Simple truncado si el nombre es muy largo
-            if len(name) > 50:
-                name = name[:47] + "..."
+            if len(name) > 40:
+                name = name[:37] + "..."
                 
-            pdf.cell(100, 10, name, 1)
-            pdf.cell(50, 10, category, 1, 0, 'C')
-            pdf.cell(40, 10, f"${price:.2f}", 1, 1, 'R')
+            x_start = pdf.get_x()
+            y_start = pdf.get_y()
+            
+            # --- Celda Producto ---
+            pdf.cell(100, row_height, "", 1) # Marco
+            
+            if img_path:
+                try:
+                    pdf.image(img_path, x=x_start + 2, y=y_start + 1.5, w=image_size, h=image_size)
+                    pdf.set_xy(x_start + image_size + 5, y_start)
+                    # Alineación vertical manual para el texto
+                    pdf.cell(100 - image_size - 5, row_height, name, 0, 0, 'L')
+                    os.unlink(img_path)
+                except Exception:
+                    pdf.set_xy(x_start + 2, y_start)
+                    pdf.cell(98, row_height, name, 0, 0, 'L')
+            else:
+                 pdf.set_xy(x_start + 2, y_start)
+                 pdf.cell(98, row_height, name, 0, 0, 'L')
+
+            # Restaurar X para siguientes celdas
+            pdf.set_xy(x_start + 100, y_start)
+                
+            pdf.cell(50, row_height, category, 1, 0, 'C')
+            pdf.cell(40, row_height, f"${price:.2f}", 1, 1, 'R')
             
         # --- Footer ---
         pdf.set_y(-20)

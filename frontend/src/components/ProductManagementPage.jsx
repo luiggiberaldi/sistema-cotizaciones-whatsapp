@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { productsAPI } from '../services/api';
-import { Trash2, Edit, Plus, Save, X, LayoutGrid, List as ListIcon, Search, ShoppingBag, ShoppingCart, Minus, Send, MessageCircle } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, LayoutGrid, List as ListIcon, Search, ShoppingBag } from 'lucide-react';
 
 export default function ProductManagementPage() {
     const [products, setProducts] = useState([]);
@@ -13,8 +13,6 @@ export default function ProductManagementPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
 
-    // Estado del Carrito
-    const [cart, setCart] = useState({}); // { productId: quantity }
 
     // Estado del formulario
     const [formData, setFormData] = useState({
@@ -117,58 +115,7 @@ export default function ProductManagementPage() {
         });
     }, [products, searchTerm, selectedCategory]);
 
-    // --- Lógica del Carrito ---
-    const addToCart = (product) => {
-        setCart(prev => ({
-            ...prev,
-            [product.id]: (prev[product.id] || 0) + 1
-        }));
-    };
 
-    const removeFromCart = (product) => {
-        setCart(prev => {
-            const newQty = (prev[product.id] || 0) - 1;
-            if (newQty <= 0) {
-                const newCart = { ...prev };
-                delete newCart[product.id];
-                return newCart;
-            }
-            return { ...prev, [product.id]: newQty };
-        });
-    };
-
-    const cartTotal = useMemo(() => {
-        let total = 0;
-        let count = 0;
-        Object.entries(cart).forEach(([id, qty]) => {
-            const p = products.find(p => p.id === parseInt(id));
-            if (p) {
-                total += p.price * qty;
-                count += qty;
-            }
-        });
-        return { total, count };
-    }, [cart, products]);
-
-    const handleCheckout = () => {
-        const lines = [];
-        lines.push("*Hola! Quiero cotizar lo siguiente:*");
-        lines.push("");
-
-        Object.entries(cart).forEach(([id, qty]) => {
-            const p = products.find(p => p.id === parseInt(id));
-            if (p) {
-                lines.push(`• ${qty}x *${p.name}* ($${p.price.toFixed(2)})`);
-            }
-        });
-
-        lines.push("");
-        lines.push(`*Total Estimado: $${cartTotal.total.toFixed(2)}*`);
-
-        const text = encodeURIComponent(lines.join("\n"));
-        // Redirigir a WhatsApp
-        window.open(`https://wa.me/?text=${text}`, '_blank');
-    };
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 min-h-screen relative pb-32">
@@ -380,23 +327,6 @@ export default function ProductManagementPage() {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {/* Botón Carrito */}
-                                                        {qty > 0 ? (
-                                                            <div className="flex items-center bg-green-50 rounded-full px-2 py-1 border border-green-200 mr-2">
-                                                                <button onClick={() => removeFromCart(product)} className="text-green-700 hover:text-green-900 p-1"><Minus size={14} /></button>
-                                                                <span className="mx-2 text-sm font-bold text-green-800">{qty}</span>
-                                                                <button onClick={() => addToCart(product)} className="text-green-700 hover:text-green-900 p-1"><Plus size={14} /></button>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => addToCart(product)}
-                                                                className="text-white bg-green-500 hover:bg-green-600 p-2 rounded-full transition mr-2 shadow-sm"
-                                                                title="Agregar al carrito"
-                                                            >
-                                                                <ShoppingCart size={18} />
-                                                            </button>
-                                                        )}
-
                                                         <button onClick={() => handleEdit(product)} className="text-indigo-600 hover:text-indigo-900 p-2 hover:bg-indigo-50 rounded-full transition">
                                                             <Edit size={18} />
                                                         </button>
@@ -416,7 +346,6 @@ export default function ProductManagementPage() {
                     {viewMode === 'gallery' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {filteredProducts.map((product) => {
-                                const qty = cart[product.id] || 0;
                                 return (
                                     <div key={product.id} className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden flex flex-col">
                                         {/* Imagen */}
@@ -450,12 +379,6 @@ export default function ProductManagementPage() {
                                                 </button>
                                             </div>
 
-                                            {/* Overlay de Cantidad si está en carrito */}
-                                            {qty > 0 && (
-                                                <div className="absolute top-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md z-10">
-                                                    En carrito: {qty}
-                                                </div>
-                                            )}
                                         </div>
 
                                         {/* Contenido */}
@@ -471,21 +394,7 @@ export default function ProductManagementPage() {
                                                     ${product.price.toFixed(2)}
                                                 </span>
 
-                                                {qty === 0 ? (
-                                                    <button
-                                                        onClick={() => addToCart(product)}
-                                                        className="bg-primary-600 text-white p-2 rounded-full hover:bg-primary-700 transition shadow-sm"
-                                                        title="Agregar al Carrito"
-                                                    >
-                                                        <Plus size={20} />
-                                                    </button>
-                                                ) : (
-                                                    <div className="flex items-center bg-gray-100 rounded-full">
-                                                        <button onClick={() => removeFromCart(product)} className="p-2 text-gray-600 hover:text-red-600 transition"><Minus size={16} /></button>
-                                                        <span className="px-2 font-bold text-sm w-4 text-center">{qty}</span>
-                                                        <button onClick={() => addToCart(product)} className="p-2 text-gray-600 hover:text-green-600 transition"><Plus size={16} /></button>
-                                                    </div>
-                                                )}
+
                                             </div>
                                         </div>
                                     </div>
@@ -496,29 +405,6 @@ export default function ProductManagementPage() {
                 </>
             )}
 
-            {/* Floating Cart Button */}
-            {cartTotal.count > 0 && (
-                <div className="fixed bottom-6 right-6 z-50">
-                    <button
-                        onClick={handleCheckout}
-                        className="bg-green-600 hover:bg-green-700 text-white rounded-full shadow-2xl p-4 flex items-center gap-3 transition-all transform hover:scale-105 animate-bounce-slow"
-                    >
-                        <div className="relative">
-                            <ShoppingCart size={24} />
-                            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-green-600">
-                                {cartTotal.count}
-                            </span>
-                        </div>
-                        <div className="flex flex-col items-start mr-2">
-                            <span className="text-xs font-medium text-green-100">Total Estimado</span>
-                            <span className="text-lg font-bold">${cartTotal.total.toFixed(2)}</span>
-                        </div>
-                        <div className="bg-white/20 p-2 rounded-full">
-                            <Send size={18} className="ml-0.5" />
-                        </div>
-                    </button>
-                </div>
-            )}
         </div>
     );
 }
