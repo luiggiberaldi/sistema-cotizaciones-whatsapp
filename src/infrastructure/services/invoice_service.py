@@ -139,3 +139,61 @@ class InvoiceService:
         pdf.output(file_path)
         
         return os.path.abspath(file_path)
+
+    def generate_catalog_pdf(self, products: List[Dict]) -> str:
+        """
+        Genera un catálogo de productos en PDF.
+        """
+        pdf = FPDF()
+        pdf.add_page()
+        
+        # --- Cabecera ---
+        pdf.set_fill_color(0, 102, 204)
+        pdf.rect(0, 0, 210, 40, 'F')
+        
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Arial", 'B', 24)
+        pdf.set_xy(10, 10)
+        pdf.cell(0, 15, "CATÁLOGO DE PRODUCTOS", ln=True, align='C')
+        
+        pdf.set_font("Arial", '', 12)
+        pdf.cell(0, 10, f"Actualizado: {datetime.now().strftime('%d/%m/%Y')}", ln=True, align='C')
+        
+        pdf.set_xy(10, 45)
+        pdf.set_text_color(0, 0, 0)
+        
+        # --- Tabla de Productos ---
+        # Cabecera
+        pdf.set_fill_color(240, 240, 240)
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(100, 10, "Producto", 1, 0, 'L', True)
+        pdf.cell(50, 10, "Categoría", 1, 0, 'C', True)
+        pdf.cell(40, 10, "Precio", 1, 1, 'R', True)
+        
+        # Contenido
+        pdf.set_font("Arial", '', 10)
+        for product in products:
+            name = self._clean_text(product.get('name', 'N/A'))
+            category = self._clean_text(product.get('category', '-'))
+            price = product.get('price', 0.0)
+            
+            # Simple truncado si el nombre es muy largo
+            if len(name) > 50:
+                name = name[:47] + "..."
+                
+            pdf.cell(100, 10, name, 1)
+            pdf.cell(50, 10, category, 1, 0, 'C')
+            pdf.cell(40, 10, f"${price:.2f}", 1, 1, 'R')
+            
+        # --- Footer ---
+        pdf.set_y(-20)
+        pdf.set_font("Arial", 'I', 8)
+        pdf.set_text_color(128, 128, 128)
+        pdf.cell(0, 10, self._clean_text("Precios sujetos a cambio sin previo aviso."), align='C')
+        
+        # Guardar
+        file_name = f"catalog_{datetime.now().strftime('%Y%m%d')}.pdf"
+        file_path = os.path.join(self.output_dir, file_name)
+        pdf.output(file_path)
+        
+        return os.path.abspath(file_path)
