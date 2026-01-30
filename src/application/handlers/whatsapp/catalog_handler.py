@@ -1,4 +1,5 @@
 from typing import Dict
+from datetime import datetime
 from .base_handler import WhatsAppHandler
 from ....infrastructure.external.whatsapp_service import WhatsAppService
 from ....domain.services import QuoteService
@@ -29,7 +30,8 @@ class CatalogHandler(WhatsAppHandler):
         products = self.quote_service.get_available_products()
         if products:
             catalog_path = self.invoice_service.generate_catalog_pdf(products)
-            storage_path = f"catalogs/catalogo_actual.pdf"
+            timestamp = int(datetime.now().timestamp())
+            storage_path = f"catalogs/catalogo_{timestamp}.pdf"
             
             # Subir o actualizar catálogo
             public_url = await self.storage_service.upload_pdf(catalog_path, storage_path)

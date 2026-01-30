@@ -5,6 +5,7 @@ from ....domain.services import QuoteService
 from ....infrastructure.services.invoice_service import InvoiceService
 from ....infrastructure.services.storage_service import StorageService
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,9 @@ class GreetingHandler(WhatsAppHandler):
                 catalog_path = self.invoice_service.generate_catalog_pdf(products)
                 logger.info(f"PDF generado en: {catalog_path}")
                 
-                storage_path = f"catalogs/catalogo_actual.pdf"
+                # Usar timestamp para evitar caché de WhatsApp/CDN
+                timestamp = int(datetime.now().timestamp())
+                storage_path = f"catalogs/catalogo_{timestamp}.pdf"
                 
                 # Subir o actualizar catálogo (StorageService manejará si ya existe o lo sobreescribe)
                 public_url = await self.storage_service.upload_pdf(catalog_path, storage_path)
