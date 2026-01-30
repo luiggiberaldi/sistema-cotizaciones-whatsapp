@@ -7,32 +7,19 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
-    const [isPasswordLogin, setIsPasswordLogin] = useState(false);
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage(null);
         try {
-            if (isPasswordLogin) {
-                // Login con contraseña
-                const { error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
-                if (error) throw error;
-                // El auth state change en App.jsx manejará la redirección/sesión
-            } else {
-                // Login con Magic Link
-                const { error } = await supabase.auth.signInWithOtp({
-                    email,
-                    options: {
-                        emailRedirectTo: window.location.origin,
-                    },
-                });
-                if (error) throw error;
-                setMessage({ type: 'success', text: '¡Enlace de acceso enviado! Revisa tu email.' });
-            }
+            // Login con contraseña
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+            if (error) throw error;
+            // El auth state change en App.jsx manejará la redirección/sesión
         } catch (error) {
             setMessage({ type: 'error', text: error.message || error.error_description });
         } finally {
@@ -47,7 +34,7 @@ export default function Login() {
                     <Lock className="h-8 w-8 text-white" />
                 </div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    {isPasswordLogin ? 'Iniciar Sesión' : 'Acceso sin contraseña'}
+                    Iniciar Sesión
                 </h2>
                 <p className="mt-2 text-center text-sm text-gray-600">
                     Sistema de Cotizaciones
@@ -79,29 +66,27 @@ export default function Login() {
                             </div>
                         </div>
 
-                        {isPasswordLogin && (
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                    Contraseña
-                                </label>
-                                <div className="mt-1 relative rounded-md shadow-sm">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <input
-                                        id="password"
-                                        name="password"
-                                        type="password"
-                                        autoComplete="current-password"
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="block w-full pl-10 sm:text-sm border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 p-2 border"
-                                        placeholder="••••••••"
-                                    />
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                                Contraseña
+                            </label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    autoComplete="current-password"
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="block w-full pl-10 sm:text-sm border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 p-2 border"
+                                    placeholder="••••••••"
+                                />
                             </div>
-                        )}
+                        </div>
 
                         {message && (
                             <div className={`text-sm p-2 rounded ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
@@ -118,36 +103,14 @@ export default function Login() {
                                 {loading ? (
                                     <>
                                         <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                                        {isPasswordLogin ? 'Iniciando...' : 'Enviando enlace...'}
+                                        Iniciando...
                                     </>
                                 ) : (
-                                    isPasswordLogin ? 'Iniciar Sesión' : 'Enviar enlace de acceso'
+                                    'Iniciar Sesión'
                                 )}
                             </button>
                         </div>
                     </form>
-
-                    <div className="mt-6">
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-gray-300" />
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsPasswordLogin(!isPasswordLogin);
-                                        setMessage(null);
-                                    }}
-                                    className="px-2 bg-white text-primary-600 hover:text-primary-500 font-medium focus:outline-none"
-                                >
-                                    {isPasswordLogin
-                                        ? 'O ingresa con Magic Link'
-                                        : 'O inicia con contraseña'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
