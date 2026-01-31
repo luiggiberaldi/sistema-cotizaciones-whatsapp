@@ -31,7 +31,7 @@ class QuoteService:
         self.product_repository = product_repository
         self.product_cache = []
         self.last_cache_update = None
-        self.cache_duration = timedelta(minutes=10)
+        self.cache_duration = timedelta(minutes=1)
         
         # Cargar catálogo inicial
         self._load_catalog()
@@ -273,7 +273,7 @@ class QuoteService:
         Returns:
             Lista de productos del catálogo
         """
-        return self.product_cache
+        return self._load_catalog()
     
     def search_product(self, query: str, threshold: int = 70) -> Optional[Dict]:
         """
