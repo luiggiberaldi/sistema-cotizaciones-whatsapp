@@ -26,8 +26,9 @@ class WizardHandler(WhatsAppHandler):
         # A. Esperando Nombre
         if step == 'WAITING_NAME':
             # Validación básica
-            if len(text.split()) > 6 or any(kw in text_lower for kw in ['precio', 'cuanto', 'delivery', 'pago']):
-                await self.whatsapp_service.send_message(from_number, "🤔 Disculpa, ¿podrías indicarme tu **Nombre y Apellido** para continuar con el registro?")
+            blacklist_keywords = ['precio', 'cuanto', 'delivery', 'pago', 'confirmar', 'corregir', 'cancelar']
+            if len(text.split()) > 6 or any(kw in text_lower for kw in blacklist_keywords) or message_data.get('button_payload'):
+                await self.whatsapp_service.send_message(from_number, "⚠️ Parece que intentaste usar un botón antiguo o escribiste una palabra no válida.\n\nPor favor, **escribe tu Nombre y Apellido** manualmente para continuar:")
                 return {'success': False, 'reason': 'invalid_name_input'}
                 
             client_data['name'] = text
