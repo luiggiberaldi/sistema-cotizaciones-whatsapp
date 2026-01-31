@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class BusinessInfoService:
     _cache: Dict[str, str] = {}
     _last_update: Optional[datetime] = None
-    _cache_ttl: timedelta = timedelta(minutes=10)
+    _cache_ttl: timedelta = timedelta(seconds=30)
 
     def __init__(self, repository: Optional[BusinessInfoRepository] = None):
         self.repository = repository or BusinessInfoRepository()

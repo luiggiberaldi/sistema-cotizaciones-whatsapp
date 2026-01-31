@@ -24,7 +24,8 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
             label: '🔔 Recordatorio Pago (Con N° Cotización)',
             text: 'Hola {{1}}, tu cotización N° {{2}} por ${{3}} está lista para pago.',
             params: ['Nombre del Cliente', 'Número de Cotización', 'Monto Total'],
-            defaults: ['{{name}}', '{{quote_id}}', '{{total}}']
+            defaults: ['{{name}}', '{{quote_id}}', '{{total}}'],
+            language: 'es_ES'
         }
     ];
 
@@ -139,7 +140,12 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                 };
             });
 
-            const result = await onSend(clientsToSend, selectedTemplateId, languageCode, paramsToSend);
+            const result = await onSend(
+                clientsToSend,
+                selectedTemplateId,
+                currentTemplate.language || languageCode,
+                paramsToSend
+            );
             setResults(result);
         } catch (error) {
             console.error('Error sending broadcast:', error);
