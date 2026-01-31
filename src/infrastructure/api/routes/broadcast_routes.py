@@ -133,6 +133,19 @@ async def send_template_broadcast(request: BroadcastTemplateRequest):
                     final_params.append(total_str)
                 elif p == '{{fecha}}':
                     final_params.append(datetime.now().strftime("%d/%m/%Y"))
+                elif p == '{{quote_id}}':
+                     quote_id_str = "N/A"
+                     if client.quote_id:
+                         quote_id_str = str(client.quote_id)
+                     else:
+                         # Intento de fallback: buscar última cotización
+                         try:
+                            user_quotes = await quote_repo.get_by_phone(phone)
+                            if user_quotes:
+                                quote_id_str = str(user_quotes[0].id)
+                         except Exception:
+                             pass
+                     final_params.append(quote_id_str)
                 else:
                     final_params.append(p)
 

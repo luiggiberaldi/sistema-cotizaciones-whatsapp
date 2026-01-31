@@ -156,9 +156,20 @@ class ProcessWhatsAppMessageUseCase:
             
             client_fully_identified = False
             
-            # 1. ¿Está en CRM? (DB)
+            # 1. ¿Está en CRM y tiene datos COMPLETOS?
             if message_data.get('customer'):
-                client_fully_identified = True
+                cust = message_data['customer']
+                # Validar que tenga datos reales y no sea un placeholder
+                name = cust.get('full_name', '')
+                has_valid_name = name and len(name) > 2 and "Desconocido" not in name
+                has_dni = bool(cust.get('dni_rif'))
+                has_address = bool(cust.get('main_address'))
+                
+                if has_valid_name and has_dni and has_address:
+                    client_fully_identified = True
+                    logger.info(f"Cliente identificado y completo: {name}")
+                else:
+                    logger.info(f"Cliente en BD pero incompleto: Name={has_valid_name}, DNI={has_dni}, Addr={has_address}")
             
             # 2. ¿Tiene datos en Sesión temporal?
             elif self.session_repository:

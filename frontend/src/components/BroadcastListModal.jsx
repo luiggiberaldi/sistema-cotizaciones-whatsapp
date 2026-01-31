@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Check, X, Loader2, Search, Filter, Users } from 'lucide-react';
+import { Check, X, Loader2, Search, Filter, Users, AlertTriangle } from 'lucide-react';
 import { customersAPI } from '../services/api';
 
 const normalizePhone = (phone) => {
@@ -14,21 +14,23 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
         {
             id: 'pago_recordatorio_es',
             label: '📢 Pago Recordatorio (Genérico)',
-            text: 'Hola {{1}}, tu cotización ha sido generada con éxito. Por favor confirma tu pago para procesar el envío. Gracias por tu preferencia.',
-            params: ['Nombre del Cliente']
+            text: 'Hola {{1}}, tu cotización ha sido generada con éxito. Tu monto total es de {{2}}. La fecha de pago sugerida es el {{3}}. Si tienes dudas, escríbenos.',
+            params: ['Nombre del Cliente', 'Monto Total', 'Fecha Sugerida'],
+            defaults: ['{{name}}', '{{total}}', '{{fecha}}']
         },
         {
             id: 'recordatorio_pago_clientes',
             label: '🔔 Recordatorio Pago (Con N° Cotización)',
-            text: 'Hola {{1}}, tu cotización N° {{2}} está pendiente por confirmar. Recuerda que los precios pueden variar. ¿Deseas finalizar tu compra?',
-            params: ['Nombre del Cliente', 'Número de Cotización']
+            text: 'Hola {{1}}, tu cotización N° {{2}} por {{3}} está lista para pago.',
+            params: ['Nombre del Cliente', 'Número de Cotización', 'Monto Total'],
+            defaults: ['{{name}}', '{{quote_id}}', '{{total}}']
         }
     ];
 
     // Estados del Mensaje
     const [selectedTemplateId, setSelectedTemplateId] = useState(TEMPLATES[0].id);
-    const [paramValues, setParamValues] = useState({}); // {0: "Juan", 1: "123"}
-    const [languageCode] = useState('es'); // Siempre español por ahora
+    const [paramValues, setParamValues] = useState({});
+    const [languageCode] = useState('es');
     const [sending, setSending] = useState(false);
     const [results, setResults] = useState(null);
 
@@ -44,6 +46,19 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
     // Obtener plantilla actual
     const currentTemplate = TEMPLATES.find(t => t.id === selectedTemplateId) || TEMPLATES[0];
 
+    // Efecto para cargar valores por defecto al cambiar plantilla
+    useEffect(() => {
+        if (currentTemplate.defaults) {
+            const defaults = {};
+            currentTemplate.defaults.forEach((val, index) => {
+                defaults[index] = val;
+            });
+            setParamValues(defaults);
+        } else {
+            setParamValues({});
+        }
+    }, [selectedTemplateId]);
+
     // Cargar clientes con filtros
     const fetchCustomers = useCallback(async () => {
         setLoadingCustomers(true);
@@ -53,8 +68,6 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                 status: statusFilter
             });
             setCustomers(data);
-
-            // Si venimos de la tabla con selecciones previas, asegurarnos de que estén en el Set
             if (initialSelectedClients.length > 0 && selectedPhones.size === 0) {
                 setSelectedPhones(new Set(initialSelectedClients.map(c => normalizePhone(c.phone))));
             }
@@ -68,8 +81,13 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
     useEffect(() => {
         if (isOpen) {
             fetchCustomers();
-            // Resetear params al abrir
-            setParamValues({});
+            // Inicializar defaults de la primera plantilla activa
+            const defaults = {};
+            const t = TEMPLATES.find(t => t.id === selectedTemplateId) || TEMPLATES[0];
+            if (t.defaults) {
+                t.defaults.forEach((val, idx) => defaults[idx] = val);
+                setParamValues(defaults);
+            }
         }
     }, [isOpen, fetchCustomers]);
 
@@ -90,7 +108,6 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
             const allPhones = customers.map(c => normalizePhone(c.phone_number));
             setSelectedPhones(new Set([...selectedPhones, ...allPhones]));
         } else {
-            // Deseleccionar solo los que están actualmente en la lista filtrada
             const currentPhones = new Set(customers.map(c => normalizePhone(c.phone_number)));
             const newSelected = new Set([...selectedPhones].filter(p => !currentPhones.has(p)));
             setSelectedPhones(newSelected);
@@ -111,7 +128,6 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                 return val.trim();
             });
 
-            // Convertir Set de teléfonos a lista de objetos con name y phone
             const clientsToSend = [...selectedPhones].map(phone => {
                 const customer = customers.find(c => normalizePhone(c.phone_number) === phone);
                 const initial = initialSelectedClients.find(c => normalizePhone(c.phone) === phone);
@@ -136,7 +152,14 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
     const handleClose = () => {
         setResults(null);
         setSelectedTemplateId(TEMPLATES[0].id);
-        setParamValues({});
+
+        // Reset defaults properly on close
+        const defaults = {};
+        if (TEMPLATES[0].defaults) {
+            TEMPLATES[0].defaults.forEach((val, idx) => defaults[idx] = val);
+        }
+        setParamValues(defaults);
+
         setSelectedPhones(new Set());
         setSearchQuery('');
         setStatusFilter('');
@@ -146,8 +169,23 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
     // Helper para generar preview
     const getPreviewText = () => {
         let text = currentTemplate.text;
+
+        // Simulación de datos para la preview
+        const mockData = {
+            '{{name}}': 'Juan Pérez',
+            '{{total}}': '$150.00',
+            '{{quote_id}}': '1024',
+            '{{fecha}}': new Date().toLocaleDateString('es-ES')
+        };
+
         currentTemplate.params.forEach((_, index) => {
-            const val = paramValues[index] || `{{${currentTemplate.params[index]}}}`;
+            let val = paramValues[index] || `{{${currentTemplate.params[index]}}}`;
+
+            // Si el valor es una variable mágica, mostramos el mock en la preview
+            if (mockData[val]) {
+                val = mockData[val];
+            }
+
             text = text.replace(`{{${index + 1}}}`, val);
         });
         return text;
@@ -262,12 +300,34 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                 </h4>
                                 <div className="space-y-1">
                                     {results.results?.map((res, i) => (
-                                        <div key={i} className="py-2 border-b border-gray-800 last:border-0 flex justify-between">
-                                            <span className="text-gray-300">...{res.phone.slice(-4)}</span>
-                                            {res.success ? (
-                                                <span className="text-green-400 text-xs flex items-center gap-1">Enviado <Check size={12} /></span>
-                                            ) : (
-                                                <span className="text-red-400 text-xs flex items-center gap-1">Error <X size={12} /></span>
+                                        <div key={i} className="py-2 border-b border-gray-800 last:border-0">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="font-medium text-gray-300">...{res.phone.slice(-4)}</span>
+                                                {res.success ? (
+                                                    <div className="flex items-center gap-1 text-green-400 text-xs">
+                                                        <span>Enviado</span>
+                                                        <Check size={14} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1 text-red-500 text-xs group relative cursor-help">
+                                                        <span>Error</span>
+                                                        <X size={14} />
+
+                                                        {/* Tooltip con error completo */}
+                                                        <div className="hidden group-hover:block absolute bottom-full right-0 mb-2 w-48 bg-red-900 text-white text-[10px] p-2 rounded shadow-xl z-50 border border-red-700 whitespace-normal">
+                                                            {res.error || 'Error desconocido'}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {!res.success && (
+                                                <button
+                                                    onClick={() => alert(`Detalle del error para ${res.phone}:\n${res.error || 'Sin detalles'}\n\nPosibles causas:\n1. Plantilla no aprobada en Meta.\n2. Número de variables incorrecto.\n3. Idioma no coincide.`)}
+                                                    className="w-full text-left text-[10px] text-red-300 bg-red-950/50 p-1.5 rounded hover:bg-red-900 transition flex items-start gap-1"
+                                                >
+                                                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                                    <span className="truncate">{res.error || 'Click para ver detalles'}</span>
+                                                </button>
                                             )}
                                         </div>
                                     ))}

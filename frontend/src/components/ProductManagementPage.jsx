@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { productsAPI } from '../services/api';
 import { Trash2, Edit, Plus, Save, X, LayoutGrid, List as ListIcon, Search, ShoppingBag } from 'lucide-react';
+import ConfirmationModal from './ConfirmationModal';
 
 export default function ProductManagementPage() {
     const [products, setProducts] = useState([]);
@@ -89,40 +90,55 @@ export default function ProductManagementPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('¿Seguro que deseas eliminar este producto?')) return;
-        try {
-            await productsAPI.delete(id);
-            await loadProducts();
-        } catch (err) {
-            console.error(err);
-            setError('Error eliminando producto');
+    // Estados para Modales de Confirmación
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showDoubleConfirm, setShowDoubleConfirm] = useState(false);
+    const [deleteTargetId, setDeleteTargetId] = useState(null); // ID para borrar uno, null para borrar todo
+
+    const handleDelete = (id) => {
+        setDeleteTargetId(id);
+        setShowDeleteConfirm(true);
+    };
+
+    const handleDeleteAll = () => {
+        setDeleteTargetId(null); // Null significa TODOS
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmFirstStep = () => {
+        setShowDeleteConfirm(false);
+        if (deleteTargetId === null) {
+            // Si es eliminar todo, requerimos paso 2
+            setShowDoubleConfirm(true);
+        } else {
+            // Si es solo uno, procedemos
+            executeDelete(deleteTargetId);
         }
     };
 
-    const handleDeleteAll = async () => {
-        if (!window.confirm('⚠️ ¿ESTÁS SEGURO? Esto eliminará TODOS los productos del inventario. Esta acción no se puede deshacer.')) return;
-
-        // Doble confirmación para seguridad
-        if (!window.confirm('Por favor confirma de nuevo: ¿Eliminar TODO el inventario permanentemente?')) return;
-
+    const executeDelete = async (id) => {
         setLoading(true);
         try {
-            // Eliminamos uno por uno (o idealmente un endpoint masivo si existiera)
-            // Como no tenemos endpoint masivo expuesto en api.js, lo hacemos iterando
-            // Nota: Para grandes inventarios esto debería ser un endpoint de backend
-            const deletePromises = products.map(p => productsAPI.delete(p.id));
-            await Promise.all(deletePromises);
-
+            if (id) {
+                await productsAPI.delete(id);
+            } else {
+                const deletePromises = products.map(p => productsAPI.delete(p.id));
+                await Promise.all(deletePromises);
+                alert('Inventario eliminado correctamente.');
+            }
             await loadProducts();
-            setError(null);
-            alert('Inventario eliminado correctamente.');
         } catch (err) {
             console.error(err);
-            setError('Error eliminando inventario masivo');
+            setError('Error eliminando producto(s)');
         } finally {
             setLoading(false);
+            setDeleteTargetId(null);
         }
+    };
+
+    const confirmDoubleStep = () => {
+        setShowDoubleConfirm(false);
+        executeDelete(null); // Eliminar todo
     };
 
     // --- Lógica de Filtrado ---
@@ -442,6 +458,28 @@ export default function ProductManagementPage() {
                 </>
             )}
 
+            {/* Modales de Confirmación */}
+            {/* 1. Primera Confirmación (Para uno o para todos) */}
+            <ConfirmationModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={confirmFirstStep}
+                title={deleteTargetId ? "Eliminar Producto" : "⚠️ Eliminar Inventario Completo"}
+                message={deleteTargetId
+                    ? "¿Estás seguro que deseas eliminar este producto? Esta acción no se puede deshacer."
+                    : "Estás a punto de eliminar TODOS los productos. ¿Deseas continuar?"}
+                isDanger={true}
+            />
+
+            {/* 2. Segunda Confirmación (Solo para Masivo) */}
+            <ConfirmationModal
+                isOpen={showDoubleConfirm}
+                onClose={() => setShowDoubleConfirm(false)}
+                onConfirm={confirmDoubleStep}
+                title="🛑 CONFIRMACIÓN FINAL"
+                message="Esta es tu última oportunidad. ¿Realmente quieres borrar TODO el inventario permanentemente? Los datos se perderán para siempre."
+                isDanger={true}
+            />
         </div>
     );
 }
