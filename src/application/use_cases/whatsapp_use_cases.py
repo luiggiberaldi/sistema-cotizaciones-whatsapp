@@ -195,6 +195,36 @@ class ProcessWhatsAppMessageUseCase:
                     )
                     return {'success': True, 'action': 'start_registration_wizard'}
 
+            # NUEVO: Si está identificado POR BBDD (Registrado), confirmar datos antes de checkout
+            if client_fully_identified and message_data.get('customer'):
+                cust = message_data['customer']
+                # Preparar datos para sesión
+                client_data = {
+                    'name': cust.get('full_name'),
+                    'dni': cust.get('dni_rif'),
+                    'address': cust.get('main_address')
+                }
+                
+                # Iniciar Flow de Confirmación de Datos Existentes
+                if self.session_repository:
+                    self.session_repository.create_or_update_session(
+                        from_number, 
+                        conversation_step='WAITING_EXISTING_DATA_CONFIRMATION',
+                        client_data=client_data
+                    )
+                    
+                    msg = f"👋 Hola {client_data['name']}, veo que ya estás registrado.\n\n"
+                    msg += f"🆔 *CI/RIF:* {client_data['dni']}\n"
+                    msg += f"📍 *Dirección:* {client_data['address']}\n\n"
+                    msg += "¿Son correctos estos datos para tu pedido?"
+                    
+                    buttons = [
+                        {'id': 'confirm_existing', 'title': '✅ Sí, Correctos'},
+                        {'id': 'update_data', 'title': '📝 No, Actualizar'}
+                    ]
+                    await self.whatsapp_service.send_interactive_button(from_number, msg, buttons)
+                    return {'success': True, 'action': 'ask_existing_confirmation'}
+
             return await self.checkout_handler.handle(message_data)
 
         # 4. COTIZACIÓN / AGREGAR ITEMS (Default)

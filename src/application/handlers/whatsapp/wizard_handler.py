@@ -101,5 +101,27 @@ class WizardHandler(WhatsAppHandler):
             else:
                 await self.whatsapp_service.send_message(from_number, "⚠️ Por favor selecciona una opción o escribe **SÍ** para finalizar.")
                 return {'success': False, 'action': 'ambiguous_response'}
+        
+        # E. Confirmación de Datos Ya Registrados (Nuevo Flow)
+        if step == 'WAITING_EXISTING_DATA_CONFIRMATION':
+            button_payload = message_data.get('button_payload')
+            
+            is_confirmed = (button_payload == 'confirm_existing') or \
+                           any(kw in text_lower for kw in ['si', 'sí', 'usar estos', 'correctos', 'bien', 'usar'])
+            
+            is_update = (button_payload == 'update_data') or \
+                        any(kw in text_lower for kw in ['no', 'actualizar', 'cambiar', 'corregir', 'nuevos'])
+
+            if is_confirmed:
+                return {'success': True, 'action': 'trigger_checkout'}
+            
+            elif is_update:
+                self.session_repository.create_or_update_session(from_number, conversation_step='WAITING_NAME', client_data={})
+                await self.whatsapp_service.send_message(from_number, "📝 Entendido. Actualicemos tus datos.\n\nPor favor, indícame tu **Nombre y Apellido**:")
+                return {'success': True, 'action': 'start_update_wizard'}
+            
+            else:
+                await self.whatsapp_service.send_message(from_number, "⚠️ Por favor confirma si los datos son correctos o si deseas actualizarlos.")
+                return {'success': False, 'action': 'ambiguous_response'}
 
         return {'success': False, 'reason': 'unknown_step'}
