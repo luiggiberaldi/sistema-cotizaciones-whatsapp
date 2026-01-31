@@ -55,9 +55,18 @@ class TextParser:
             self.match_list.append((norm_name, product))
             
             # Incluir aliases
-            for alias in product.get('aliases', []):
+            aliases = product.get('aliases', []) if isinstance(product, dict) else getattr(product, 'aliases', [])
+            for alias in (aliases or []):
                 norm_alias = self._normalize_text(alias)
                 self.match_list.append((norm_alias, product))
+                
+                # Gestión básica de plurales en español
+                # Si termina en vocal, agregar 's'. Si termina en consonante, agregar 'es'.
+                if not norm_alias.endswith('s'):
+                    if norm_alias[-1] in 'aeiou':
+                        self.match_list.append((norm_alias + 's', product))
+                    else:
+                        self.match_list.append((norm_alias + 'es', product))
         
         # Ordenar por longitud descendente para priorizar "Chaqueta Jean" sobre "Jean"
         self.match_list.sort(key=lambda x: len(x[0]), reverse=True)

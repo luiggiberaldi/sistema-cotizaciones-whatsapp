@@ -44,17 +44,78 @@ class QuoteHandler(WhatsAppHandler):
             return await self._handle_add_items(from_number, text, message_id)
         except ValueError:
             # Fallback Logic
-            # Si is_quote_intent era True, significa que detectamos keywords pero el parser falló
+            # Si is_quote_intent era True, intentamos con ayuda de IA antes de rendirnos
             if is_quote_intent:
+                logger.info(f"Parser falló para intent de cotización. Reintentando con Groq AI asistido: {text}")
+                ai_items = await self._handle_ai_assisted_quote(from_number, text)
+                
+                if ai_items:
+                    # Si la IA identificó items, los procesamos
+                    # Simulamos que son parsed items para reutilizar _handle_add_items o similar
+                    # Pero _handle_add_items ya falló, así que mejor procesamos directo aquí
+                    return await self._process_items(from_number, ai_items, message_id, "Productos Identificados (IA)")
+                
                 msg = "🤔 Entiendo que quieres una cotización, pero no logré identificar el producto. ¿Podrías decirme qué necesitas exactamente?"
                 await self.whatsapp_service.send_message(from_number, msg)
                 return {'success': False, 'reason': 'quote_intent_no_products'}
             
             # Si llegamos aquí y no era quote intent explicito pero el dispatcher lo mandó (ej. fallback general)
-            # Intentamos con Groq
+            # Intentamos con Groq (respuesta conversacional)
             response_text = await self.groq_service.get_fallback_response(text)
             await self.whatsapp_service.send_message(from_number, response_text)
             return {'success': True, 'action': 'fallback_ai'}
+
+    async def _handle_ai_assisted_quote(self, from_number: str, text: str) -> List[Dict]:
+        """Usa Groq para identificar productos cuando el regex falla."""
+        catalog = self.quote_service.get_available_products()
+        ai_raw_items = await self.groq_service.identify_products(text, catalog)
+        
+        final_items = []
+        for item in ai_raw_items:
+            prod_name = item.get('product_name')
+            qty = item.get('quantity', 1)
+            
+            # Buscar el producto real en el catálogo para tener precios y URL
+            product = self.quote_service.search_product(prod_name, threshold=95)
+            if product:
+                final_items.append({
+                    'product': product,
+                    'quantity': qty,
+                    'matched_text': text # Contexto
+                })
+        
+        return final_items
+
+    async def _process_items(self, from_number: str, parsed_items: List[Dict], message_id: str, action_description: str) -> Dict:
+        """Lógica común para procesar ítems identificados y actualizar carrito."""
+        # 1. Obtener sesión actual
+        current_items = []
+        if self.session_repository:
+            session = self.session_repository.get_session(from_number)
+            if session:
+                current_items = session.get('items', [])
+
+        # 2. Mezclar ítems
+        new_items_to_add = [self._entity_to_dict_item(item) for item in parsed_items]
+        merged_items = self._merge_items(current_items, new_items_to_add)
+
+        # 3. Guardar sesión
+        if self.session_repository:
+            self.session_repository.create_or_update_session(from_number, merged_items)
+
+        # 4. Respuesta
+        total = sum(item['subtotal'] for item in merged_items)
+        response_text = f"✨ *{action_description}*\n\n"
+        for item in merged_items:
+            response_text += f"• {item['quantity']} {item['product_name']}\n"
+        
+        response_text += f"\n💰 *Total Actual:* ${total:.2f}\n"
+        response_text += "Escribe *'confirmar'* para finalizar o sigue agregando."
+        
+        await self.whatsapp_service.send_message(to=from_number, message=response_text)
+        await self.whatsapp_service.mark_message_as_read(message_id)
+        
+        return {'success': True, 'action': 'edit_cart', 'items_count': len(merged_items)}
 
     async def _handle_add_items(self, from_number: str, text: str, message_id: str) -> Dict:
         text_lower = text.lower()
