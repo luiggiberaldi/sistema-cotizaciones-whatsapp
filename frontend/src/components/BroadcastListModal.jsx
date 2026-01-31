@@ -14,16 +14,16 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
         {
             id: 'pago_recordatorio_es',
             label: '📢 Pago Recordatorio (Genérico)',
-            text: 'Hola {{1}}, tu cotización ha sido generada con éxito. Tu monto total es de {{2}}. La fecha de pago sugerida es el {{3}}. Si tienes dudas, escríbenos.',
+            text: 'Hola {{1}}, tu cotización ha sido generada con éxito. Tu monto total es de ${{2}}. La fecha de pago sugerida es el {{3}}. Si tienes dudas, escríbenos.',
             params: ['Nombre del Cliente', 'Monto Total', 'Fecha Sugerida'],
             defaults: ['{{name}}', '{{total}}', '{{fecha}}']
         },
         {
             id: 'recordatorio_pago_clientes',
             label: '🔔 Recordatorio Pago (Con N° Cotización)',
-            text: 'Hola {{1}}, tu cotización N° {{2}} está pendiente por confirmar. Recuerda que los precios pueden variar. ¿Deseas finalizar tu compra?',
-            params: ['Nombre del Cliente', 'Número de Cotización'],
-            defaults: ['{{name}}', '{{quote_id}}']
+            text: 'Hola {{1}}, tu cotización N° {{2}} por ${{3}} está lista para pago.',
+            params: ['Nombre del Cliente', 'Número de Cotización', 'Monto Total'],
+            defaults: ['{{name}}', '{{quote_id}}', '{{total}}']
         }
     ];
 

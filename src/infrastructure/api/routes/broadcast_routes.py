@@ -115,24 +115,28 @@ async def send_template_broadcast(request: BroadcastTemplateRequest):
                 if p == '{{name}}':
                     final_params.append(client.name)
                 elif p == '{{total}}':
-                    total_str = "$0.00"
+                    # User requested raw number because template has '$' prefix (e.g. ${{2}})
+                    total_str = "0.00"
                     try:
                         if client.quote_id:
                             # Prioridad 1: Usar ID específico
                             quote = await quote_repo.get_by_id(client.quote_id)
                             if quote:
-                                total_str = f"${quote.total:.2f}"
+                                total_str = f"{quote.total:.2f}"
                         else:
                             # Prioridad 2: Buscar última cotización por teléfono
                             user_quotes = await quote_repo.get_by_phone(phone)
                             if user_quotes:
-                                total_str = f"${user_quotes[0].total:.2f}"
+                                total_str = f"{user_quotes[0].total:.2f}"
                     except Exception as e:
                         logger.warning(f"No se pudo obtener el total para {phone}: {e}")
                     
                     final_params.append(total_str)
                 elif p == '{{fecha}}':
-                    final_params.append(datetime.now().strftime("%d/%m/%Y"))
+                    # User requested 15 days from now
+                    from datetime import timedelta
+                    future_date = datetime.now() + timedelta(days=15)
+                    final_params.append(future_date.strftime("%d/%m/%Y"))
                 elif p == '{{quote_id}}':
                      quote_id_str = "N/A"
                      if client.quote_id:
