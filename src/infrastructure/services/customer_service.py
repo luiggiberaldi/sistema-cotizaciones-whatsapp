@@ -35,3 +35,7 @@ class CustomerService:
     def update_customer_address(self, customer_id: str, address: str) -> Optional[Dict]:
         """Actualizar dirección principal del cliente."""
         return self.repository.update(customer_id, {"main_address": address})
+
+    def update_customer_dni(self, customer_id: str, dni: str) -> Optional[Dict]:
+        """Actualizar DNI/RIF del cliente."""
+        return self.repository.update(customer_id, {"dni_rif": dni})

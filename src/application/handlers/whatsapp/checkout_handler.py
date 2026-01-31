@@ -80,6 +80,10 @@ class CheckoutHandler(WhatsAppHandler):
                         # Actualizar dirección
                         if quote.client_address:
                             c_service.update_customer_address(final_customer['id'], quote.client_address)
+
+                        # Actualizar DNI
+                        if quote.client_dni:
+                            c_service.update_customer_dni(final_customer['id'], quote.client_dni)
                         
                         quote.customer_id = final_customer['id']
                         logger.info(f"Cotización vinculada a cliente {final_customer['id']}")
