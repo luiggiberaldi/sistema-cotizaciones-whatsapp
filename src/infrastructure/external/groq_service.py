@@ -27,6 +27,8 @@ class GroqService:
                 return
 
             self.client = Groq(api_key=self.api_key)
+            # Pre-load async client lazy or here if preferred, but let's keep lazy for async loop safety
+            self.async_client = None 
             self.model_name = "mixtral-8x7b-32768" # Modelo rápido y eficiente en Groq
             logger.info(f"GroqService: Initialized with model {self.model_name}")
             
@@ -59,10 +61,12 @@ class GroqService:
             # Sin embargo, para no bloquear el event loop, lo ideal es usar AsyncGroqclient.
             # Vamos a usar AsyncGroq mejor.
             
-            from groq import AsyncGroq
-            async_client = AsyncGroq(api_key=self.api_key)
-            
-            completion = await async_client.chat.completions.create(
+            # Usar cliente asíncrono pre-inicializado
+            if not self.async_client:
+                 from groq import AsyncGroq
+                 self.async_client = AsyncGroq(api_key=self.api_key)
+
+            completion = await self.async_client.chat.completions.create(
                 model=self.model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
