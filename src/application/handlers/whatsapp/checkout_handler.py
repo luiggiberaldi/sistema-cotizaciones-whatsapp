@@ -159,7 +159,8 @@ class CheckoutHandler(WhatsAppHandler):
                     'quantity': item.quantity,
                     'unit_price': item.unit_price,
                     'subtotal': item.subtotal,
-                    'description': getattr(item, 'description', '')
+                    'description': getattr(item, 'description', ''),
+                    'image_url': getattr(item, 'image_url', None)
                 }
                 for item in quote.items
             ],

@@ -132,7 +132,8 @@ class QuoteService:
             quantity=quantity,
             unit_price=unit_price,
             subtotal=subtotal,
-            description=f"Categoría: {product.get('category', 'N/A')}"
+            description=f"Categoría: {product.get('category', 'N/A')}",
+            image_url=product.get('image_url')
         )
     
     def generate_quote_from_text(

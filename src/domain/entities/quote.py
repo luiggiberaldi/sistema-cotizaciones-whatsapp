@@ -46,6 +46,10 @@ class QuoteItem(StrictBaseModel):
         max_length=500,
         description="Descripción adicional del item"
     )
+    image_url: Optional[str] = Field(
+        None,
+        description="URL de la imagen del producto"
+    )
     
     @model_validator(mode='after')
     def validate_subtotal(self):

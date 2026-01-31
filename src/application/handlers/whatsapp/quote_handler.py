@@ -147,7 +147,8 @@ class QuoteHandler(WhatsAppHandler):
             'quantity': qty,
             'unit_price': price,
             'subtotal': price * qty,
-            'description': product.get('category', '')
+            'description': product.get('category', ''),
+            'image_url': product.get('image_url')
         }
 
     def _merge_items(self, current: List[Dict], new: List[Dict]) -> List[Dict]:
