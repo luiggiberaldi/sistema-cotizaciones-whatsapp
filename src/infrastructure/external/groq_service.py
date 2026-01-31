@@ -1,4 +1,5 @@
 import json
+from typing import List, Dict, Optional
 from groq import Groq
 from ..config.settings import settings
 import logging
