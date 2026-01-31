@@ -15,25 +15,26 @@ class BusinessInfoService:
         self.repository = repository or BusinessInfoRepository()
 
     def _should_refresh_cache(self) -> bool:
-        if not self._last_update:
+        if not BusinessInfoService._last_update:
             return True
-        return datetime.now() - self._last_update > self._cache_ttl
+        return datetime.now() - BusinessInfoService._last_update > self._cache_ttl
 
     def _refresh_cache(self):
         """Recargar caché desde BD."""
         try:
             items = self.repository.get_all()
-            self._cache = {item.key: item.value for item in items}
-            self._last_update = datetime.now()
+            # Actualizar atributo de CLASE para compartir entre instancias
+            BusinessInfoService._cache = {item.key: item.value for item in items}
+            BusinessInfoService._last_update = datetime.now()
             logger.info("Caché de Business Info actualizado")
         except Exception as e:
             logger.error(f"Error actualizando caché de Business Info: {e}")
 
     def get_value(self, key: str, default: str = "") -> str:
         """Obtener valor por clave (leído de caché)."""
-        if self._should_refresh_cache() or key not in self._cache:
+        if self._should_refresh_cache() or key not in BusinessInfoService._cache:
             self._refresh_cache()
-        return self._cache.get(key, default)
+        return BusinessInfoService._cache.get(key, default)
 
     def get_all_info(self) -> List[BusinessInfo]:
         """Obtener toda la info (directo de BD para dashboard)."""
@@ -53,6 +54,6 @@ class BusinessInfoService:
     def update_info(self, updates: List[Dict]) -> List[BusinessInfo]:
         """Actualizar información y limpiar caché."""
         updated = self.repository.update_bulk(updates)
-        # Invalidar caché forzando recarga próxima vez
-        self._last_update = None
+        # Invalidar caché forzando recarga próxima vez (en TODAS las instancias)
+        BusinessInfoService._last_update = None
         return updated

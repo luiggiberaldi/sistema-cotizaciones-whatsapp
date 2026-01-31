@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Check, X, Loader2, Search, Filter, Users, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import { customersAPI } from '../services/api';
 
 const normalizePhone = (phone) => {
@@ -143,7 +144,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
         } catch (error) {
             console.error('Error sending broadcast:', error);
             const errorMessage = error.response?.data?.detail || error.message || 'Error desconocido del servidor';
-            alert('Error al enviar mensajes: ' + errorMessage);
+            toast.error('Error al enviar mensajes: ' + errorMessage);
         } finally {
             setSending(false);
         }
@@ -322,7 +323,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                             </div>
                                             {!res.success && (
                                                 <button
-                                                    onClick={() => alert(`Detalle del error para ${res.phone}:\n${res.error || 'Sin detalles'}\n\nPosibles causas:\n1. Plantilla no aprobada en Meta.\n2. Número de variables incorrecto.\n3. Idioma no coincide.`)}
+                                                    onClick={() => toast.error(`Error: ${res.error || 'Sin detalles'}`, { duration: 5000 })}
                                                     className="w-full text-left text-[10px] text-red-300 bg-red-950/50 p-1.5 rounded hover:bg-red-900 transition flex items-start gap-1"
                                                 >
                                                     <AlertTriangle size={12} className="mt-0.5 shrink-0" />

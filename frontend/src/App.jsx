@@ -9,6 +9,9 @@ import CustomersPage from './components/CustomersPage';
 import { quotesAPI, broadcastAPI } from './services/api';
 import { MessageSquare, RefreshCw, LogOut, AlertCircle, ShoppingBag, LayoutDashboard, Store, Trash2, Users, Download } from 'lucide-react';
 
+import { Toaster, toast } from 'sonner';
+import ConfirmationModal from './components/ConfirmationModal';
+
 function App() {
     const [session, setSession] = useState(null);
     const [loadingSession, setLoadingSession] = useState(true);
@@ -22,6 +25,9 @@ function App() {
     const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'products' | 'business-info'
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+    // UI State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
     // Manejo de sesión
     useEffect(() => {
@@ -71,6 +77,7 @@ function App() {
         } catch (err) {
             console.error('Error loading quotes:', err);
             setError('Error al cargar las cotizaciones. Intente nuevamente.');
+            toast.error('Error al cargar las cotizaciones');
         } finally {
             setLoading(false);
         }
@@ -131,11 +138,12 @@ function App() {
         }
     };
 
-    const handleDeleteQuotes = async () => {
-        if (!window.confirm(`¿Estás seguro de que deseas eliminar ${selectedQuotes.length} cotizaciones?`)) {
-            return;
-        }
+    const handleDeleteClick = () => {
+        if (selectedQuotes.length === 0) return;
+        setDeleteModalOpen(true);
+    };
 
+    const confirmDeleteQuotes = async () => {
         try {
             setLoading(true);
             // Delete sequentially to avoid overwhelming the server/DB connection if many are selected
@@ -146,12 +154,14 @@ function App() {
             // Clear selection and reload
             setSelectedQuotes([]);
             await loadQuotes();
-
+            toast.success('Cotizaciones eliminadas correctamente');
         } catch (err) {
             console.error('Error deleting quotes:', err);
             setError('Error al eliminar las cotizaciones. Intente nuevamente.');
+            toast.error('Error al eliminar las cotizaciones');
         } finally {
             setLoading(false);
+            setDeleteModalOpen(false);
         }
     };
 
@@ -183,6 +193,8 @@ function App() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <Toaster richColors position="top-center" />
+
             {/* Header */}
             <header className="bg-white shadow-sm border-b">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -300,7 +312,7 @@ function App() {
                                     <span>Difusión</span>
                                 </button>
                                 <button
-                                    onClick={handleDeleteQuotes}
+                                    onClick={handleDeleteClick}
                                     disabled={selectedQuotes.length === 0}
                                     className={`flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${selectedQuotes.length > 0
                                         ? 'bg-red-100 text-red-700 hover:bg-red-200 shadow-sm transform hover:-translate-y-0.5'
@@ -372,12 +384,21 @@ function App() {
                 )}
             </main>
 
-            {/* Broadcast Modal */}
+            {/* Modals */}
             <BroadcastListModal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
                 initialSelectedClients={selectedQuotes}
                 onSend={handleSendBroadcast}
+            />
+
+            <ConfirmationModal
+                isOpen={deleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={confirmDeleteQuotes}
+                title="Eliminar Cotizaciones"
+                message={`¿Estás seguro de que deseas eliminar ${selectedQuotes.length} cotizaciones? Esta acción no se puede deshacer.`}
+                isDanger={true}
             />
         </div>
     );

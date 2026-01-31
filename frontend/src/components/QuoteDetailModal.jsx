@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, FileText, Download, User, MapPin, Phone, CreditCard } from 'lucide-react';
+import { toast } from 'sonner';
 import { quotesAPI } from '../services/api';
 
 const QuoteDetailModal = ({ isOpen, onClose, quote }) => {
@@ -19,9 +20,10 @@ const QuoteDetailModal = ({ isOpen, onClose, quote }) => {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+            toast.success("PDF generado correctamente");
         } catch (error) {
             console.error("Error generating PDF:", error);
-            alert("Error al generar el PDF. Por favor intente de nuevo.");
+            toast.error("Error al generar el PDF. Por favor intente de nuevo.");
         } finally {
             setGeneratingPdf(false);
         }
