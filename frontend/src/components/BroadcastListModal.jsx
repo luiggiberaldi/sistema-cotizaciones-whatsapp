@@ -210,7 +210,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                             <Users size={20} className="text-primary-600 sm:w-6 sm:h-6" />
                         </div>
                         <h2 className="text-lg sm:text-2xl font-bold text-gray-800">
-                            Difusión Masiva
+                            Difusión Masiva v1.1
                         </h2>
                     </div>
                     <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 transition p-2">
@@ -245,9 +245,14 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                                 }}
                                                 className="text-primary-600 focus:ring-primary-500"
                                             />
-                                            <span className={`text-sm font-medium ${selectedTemplateId === t.id ? 'text-primary-900' : 'text-gray-700'}`}>
-                                                {t.label}
-                                            </span>
+                                            <div className="flex flex-col">
+                                                <span className={`text-sm font-medium ${selectedTemplateId === t.id ? 'text-primary-900' : 'text-gray-700'}`}>
+                                                    {t.label}
+                                                </span>
+                                                <span className="text-[10px] text-gray-400">
+                                                    ID: {t.id} | Lang: {t.language || 'es'}
+                                                </span>
+                                            </div>
                                         </label>
                                     ))}
                                 </div>
