@@ -9,10 +9,26 @@ const normalizePhone = (phone) => {
 };
 
 const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = [] }) => {
+    // Configuración de Plantillas
+    const TEMPLATES = [
+        {
+            id: 'pago_recordatorio_es',
+            label: '📢 Pago Recordatorio (Genérico)',
+            text: 'Hola {{1}}, tu cotización ha sido generada con éxito. Por favor confirma tu pago para procesar el envío. Gracias por tu preferencia.',
+            params: ['Nombre del Cliente']
+        },
+        {
+            id: 'recordatorio_pago_clientes',
+            label: '🔔 Recordatorio Pago (Con N° Cotización)',
+            text: 'Hola {{1}}, tu cotización N° {{2}} está pendiente por confirmar. Recuerda que los precios pueden variar. ¿Deseas finalizar tu compra?',
+            params: ['Nombre del Cliente', 'Número de Cotización']
+        }
+    ];
+
     // Estados del Mensaje
-    const [templateName, setTemplateName] = useState('hello_world');
-    const [languageCode, setLanguageCode] = useState('en_US');
-    const [parameters, setParameters] = useState('');
+    const [selectedTemplateId, setSelectedTemplateId] = useState(TEMPLATES[0].id);
+    const [paramValues, setParamValues] = useState({}); // {0: "Juan", 1: "123"}
+    const [languageCode] = useState('es'); // Siempre español por ahora
     const [sending, setSending] = useState(false);
     const [results, setResults] = useState(null);
 
@@ -24,6 +40,9 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
     const [selectedPhones, setSelectedPhones] = useState(new Set(
         initialSelectedClients.map(c => normalizePhone(c.phone))
     ));
+
+    // Obtener plantilla actual
+    const currentTemplate = TEMPLATES.find(t => t.id === selectedTemplateId) || TEMPLATES[0];
 
     // Cargar clientes con filtros
     const fetchCustomers = useCallback(async () => {
@@ -49,6 +68,8 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
     useEffect(() => {
         if (isOpen) {
             fetchCustomers();
+            // Resetear params al abrir
+            setParamValues({});
         }
     }, [isOpen, fetchCustomers]);
 
@@ -84,19 +105,12 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
         setResults(null);
 
         try {
-            let params;
-            if (templateName === 'payment_reminder') {
-                // El backend se encargará de reemplazar {{name}}, {{total}} y {{fecha}}
-                params = ['{{name}}', '{{total}}', '{{fecha}}'];
-            } else {
-                params = parameters
-                    .split(',')
-                    .map((p) => p.trim())
-                    .filter((p) => p);
-            }
+            // Convertir objeto paramValues a array ordenado según config de la plantilla
+            const paramsToSend = currentTemplate.params.map((_, index) => {
+                const val = paramValues[index] || '';
+                return val.trim();
+            });
 
-            // Convertir Set de teléfonos a lista de objetos con name y phone
-            // Buscamos en Customers
             // Convertir Set de teléfonos a lista de objetos con name y phone
             const clientsToSend = [...selectedPhones].map(phone => {
                 const customer = customers.find(c => normalizePhone(c.phone_number) === phone);
@@ -108,7 +122,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                 };
             });
 
-            const result = await onSend(clientsToSend, templateName, languageCode, params);
+            const result = await onSend(clientsToSend, selectedTemplateId, languageCode, paramsToSend);
             setResults(result);
         } catch (error) {
             console.error('Error sending broadcast:', error);
@@ -121,20 +135,29 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
 
     const handleClose = () => {
         setResults(null);
-        setTemplateName('hello_world');
-        setLanguageCode('es');
-        setParameters('');
+        setSelectedTemplateId(TEMPLATES[0].id);
+        setParamValues({});
         setSelectedPhones(new Set());
         setSearchQuery('');
         setStatusFilter('');
         onClose();
     };
 
+    // Helper para generar preview
+    const getPreviewText = () => {
+        let text = currentTemplate.text;
+        currentTemplate.params.forEach((_, index) => {
+            const val = paramValues[index] || `{{${currentTemplate.params[index]}}}`;
+            text = text.replace(`{{${index + 1}}}`, val);
+        });
+        return text;
+    };
+
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-white shrink-0">
                     <div className="flex items-center gap-2">
@@ -142,7 +165,7 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                             <Users size={20} className="text-primary-600 sm:w-6 sm:h-6" />
                         </div>
                         <h2 className="text-lg sm:text-2xl font-bold text-gray-800">
-                            Difusión 2.0
+                            Difusión Masiva
                         </h2>
                     </div>
                     <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 transition p-2">
@@ -151,71 +174,171 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 flex flex-col lg:flex-row gap-6">
-                    {/* Panel Izquierdo: Filtros y Selección de Clientes */}
-                    <div className="flex-1 flex flex-col space-y-4">
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                {/* Búsqueda */}
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar por nombre o celular..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                                    />
-                                </div>
-                                {/* Filtro Status */}
-                                <div className="relative">
-                                    <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 appearance-none bg-white font-medium text-gray-700"
-                                    >
-                                        <option value="">Cualquier Estado</option>
-                                        <option value="draft">🛒 Solo Borradores</option>
-                                        <option value="approved">✅ Solo Aprobados</option>
-                                    </select>
+                    {/* Panel Izquierdo: Configuración y Preview */}
+                    <div className="w-full lg:w-96 flex flex-col gap-6 shrink-0 order-2 lg:order-1">
+                        <div className="space-y-6">
+
+                            {/* Selector de Plantilla */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                                    1. Seleccionar Plantilla
+                                </label>
+                                <div className="space-y-2">
+                                    {TEMPLATES.map((t) => (
+                                        <label
+                                            key={t.id}
+                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedTemplateId === t.id ? 'border-primary-500 bg-primary-50 shadow-sm' : 'border-gray-200 hover:border-primary-300'}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="template"
+                                                value={t.id}
+                                                checked={selectedTemplateId === t.id}
+                                                onChange={() => {
+                                                    setSelectedTemplateId(t.id);
+                                                    setParamValues({}); // Reset values on change
+                                                }}
+                                                className="text-primary-600 focus:ring-primary-500"
+                                            />
+                                            <span className={`text-sm font-medium ${selectedTemplateId === t.id ? 'text-primary-900' : 'text-gray-700'}`}>
+                                                {t.label}
+                                            </span>
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* Select All */}
-                            <div className="flex items-center justify-between px-2 text-sm text-gray-600">
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        checked={isAllSelected}
-                                        onChange={handleSelectAll}
-                                        className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                    />
-                                    <span className="font-semibold group-hover:text-primary-600">Seleccionar Todo ({customers.length})</span>
+                            {/* Inputs Dinámicos */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">
+                                    2. Variables del Mensaje
                                 </label>
-                                <span className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full font-bold">
-                                    {selectedPhones.size} seleccionados
-                                </span>
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+                                    {currentTemplate.params.length === 0 ? (
+                                        <p className="text-xs text-gray-500 italic">Esta plantilla no requiere variables.</p>
+                                    ) : (
+                                        currentTemplate.params.map((paramLabel, index) => (
+                                            <div key={index}>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                                    {paramLabel} <span className="text-primary-400 font-normal">({`{{${index + 1}}`})</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={paramValues[index] || ''}
+                                                    onChange={(e) => setParamValues(prev => ({ ...prev, [index]: e.target.value }))}
+                                                    placeholder={`Ej: ${paramLabel === 'Nombre del Cliente' ? 'Juan Pérez' : '...'}`}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                                    disabled={sending}
+                                                />
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Preview Card */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                                    Vista Previa
+                                </label>
+                                <div className="bg-[#E9EDEF] p-4 rounded-lg border border-gray-200 shadow-inner relative">
+                                    <div className="bg-white p-3 rounded-lg shadow-sm rounded-tr-none text-sm text-gray-800 leading-relaxed whitespace-pre-wrap relative">
+                                        {getPreviewText()}
+                                        <span className="text-[10px] text-gray-400 absolute bottom-1 right-2 block mt-1">
+                                            Ahora
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Resultados (Mantenidos abajo a la izquierda) */}
+                        {results && (
+                            <div className="bg-gray-900 text-white rounded-xl p-4 text-sm max-h-[200px] overflow-y-auto mt-auto">
+                                <h4 className="font-bold mb-2 flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                    Reporte de Envío
+                                </h4>
+                                <div className="space-y-1">
+                                    {results.results?.map((res, i) => (
+                                        <div key={i} className="py-2 border-b border-gray-800 last:border-0 flex justify-between">
+                                            <span className="text-gray-300">...{res.phone.slice(-4)}</span>
+                                            {res.success ? (
+                                                <span className="text-green-400 text-xs flex items-center gap-1">Enviado <Check size={12} /></span>
+                                            ) : (
+                                                <span className="text-red-400 text-xs flex items-center gap-1">Error <X size={12} /></span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Panel Derecho: Selección de Clientes (Expandido) */}
+                    <div className="flex-1 flex flex-col space-y-4 order-1 lg:order-2 h-full min-h-[400px]">
+                        <div className="flex flex-col sm:flex-row gap-3 bg-white p-1">
+                            {/* Búsqueda */}
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar cliente..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                />
+                            </div>
+                            {/* Filtro Status */}
+                            <div className="relative shrink-0">
+                                <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white"
+                                >
+                                    <option value="">Todos</option>
+                                    <option value="draft">Borradores</option>
+                                    <option value="approved">Aprobados</option>
+                                </select>
                             </div>
                         </div>
 
-                        {/* Lista de Clientes */}
-                        <div className="flex-1 overflow-y-auto border border-gray-200 rounded-xl min-h-[300px]">
+                        {/* Select All Bar */}
+                        <div className="bg-gray-50 px-4 py-2 rounded-lg border border-gray-200 flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={handleSelectAll}
+                                    className="w-4 h-4 text-primary-600 rounded"
+                                />
+                                <span className="text-sm font-semibold text-gray-700">Seleccionar Todo</span>
+                            </label>
+                            <span className="bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded text-xs font-bold">
+                                {selectedPhones.size} / {customers.length}
+                            </span>
+                        </div>
+
+                        {/* Lista Scrollable */}
+                        <div className="flex-1 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-sm">
                             {loadingCustomers ? (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
                                     <Loader2 className="animate-spin mb-2" size={32} />
-                                    <p>Cargando clientes...</p>
+                                    <p>Cargando...</p>
                                 </div>
                             ) : customers.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                                     <Users size={48} className="mb-2 opacity-20" />
-                                    <p>No se encontraron clientes.</p>
+                                    <p>No hay resultados.</p>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-100">
                                     {customers.map((customer) => (
                                         <label
                                             key={customer.phone_number}
-                                            className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer transition ${selectedPhones.has(customer.phone_number) ? 'bg-primary-50/30' : ''}`}
+                                            className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition ${selectedPhones.has(normalizePhone(customer.phone_number)) ? 'bg-blue-50/50' : ''}`}
                                         >
                                             <input
                                                 type="checkbox"
@@ -223,121 +346,18 @@ const BroadcastListModal = ({ isOpen, onClose, onSend, initialSelectedClients = 
                                                 onChange={() => toggleCustomer(customer.phone_number)}
                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                             />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between">
-                                                    <p className="font-bold text-gray-900 leading-tight truncate">{customer.full_name}</p>
-                                                </div>
-                                                <p className="text-xs sm:text-sm text-gray-500 font-medium">{customer.phone_number}</p>
+                                            <div className="flex-1">
+                                                <p className="font-bold text-gray-900">{customer.full_name}</p>
+                                                <p className="text-xs text-gray-500 font-mono">{customer.phone_number}</p>
                                             </div>
                                             {selectedPhones.has(normalizePhone(customer.phone_number)) && (
-                                                <Check className="text-primary-600" size={20} />
+                                                <span className="w-2 h-2 rounded-full bg-primary-500"></span>
                                             )}
                                         </label>
                                     ))}
                                 </div>
                             )}
                         </div>
-                    </div>
-
-                    {/* Panel Derecho: Configuración de Envío */}
-                    <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0">
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-bold text-gray-800">Mensaje Automático</h3>
-
-                            {/* Template */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plantilla de Meta</label>
-                                <select
-                                    value={templateName}
-                                    onChange={(e) => {
-                                        const newTemplate = e.target.value;
-                                        setTemplateName(newTemplate);
-                                        // Auto-seleccionar idioma sugerido (Oculto al usuario pero vital)
-                                        if (newTemplate === 'hello_world') {
-                                            setLanguageCode('en_US');
-                                        } else {
-                                            setLanguageCode('es');
-                                        }
-                                    }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 font-medium text-sm"
-                                    disabled={sending}
-                                >
-                                    <option value="hello_world">👋 Hello World (Test - Inglés)</option>
-                                    <option value="quote_notification">📄 Notificación Cotización (Español)</option>
-                                    <option value="payment_reminder">💰 Recordatorio de Pago (Español)</option>
-                                </select>
-                                {templateName === 'hello_world' && (
-                                    <p className="text-[10px] text-amber-600 mt-1 font-medium">
-                                        ⚠️ Modo Test: Solo funciona en Inglés (en_US)
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Parámetros */}
-                            {templateName !== 'hello_world' && (
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contenido Extra (Parámetros)</label>
-                                    {templateName === 'payment_reminder' ? (
-                                        <div className="bg-primary-50 p-3 rounded-lg border border-primary-100 space-y-2">
-                                            <p className="text-xs text-primary-800 leading-snug">
-                                                ✨ Llenado automático de <strong>Nombre</strong> y <strong>Total</strong> activado.
-                                            </p>
-                                            <input
-                                                type="text"
-                                                value={parameters}
-                                                onChange={(e) => setParameters(e.target.value)}
-                                                placeholder="Fecha: ej 'esta tarde'"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                                disabled={sending}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <textarea
-                                            value={parameters}
-                                            onChange={(e) => setParameters(e.target.value)}
-                                            placeholder="Separar por comas..."
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm min-h-[80px]"
-                                            disabled={sending}
-                                        />
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Resultados */}
-                        {results && (
-                            <div className="bg-gray-900 text-white rounded-xl p-4 text-sm max-h-[200px] overflow-y-auto no-scrollbar">
-                                <h4 className="font-bold mb-2 flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                    Envíos Finalizados
-                                </h4>
-                                <div className="space-y-1">
-                                    {results.results?.map((res, i) => (
-                                        <div key={i} className="py-2 border-b border-gray-800 last:border-0">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="font-medium text-gray-300">...{res.phone.slice(-4)}</span>
-                                                {res.success ? (
-                                                    <div className="flex items-center gap-1 text-green-400 text-xs">
-                                                        <span>Enviado</span>
-                                                        <Check size={14} />
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-1 text-red-400 text-xs">
-                                                        <span>Falló</span>
-                                                        <X size={14} />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {!res.success && res.error && (
-                                                <p className="text-[10px] text-red-500 bg-red-950/30 p-1.5 rounded leading-tight">
-                                                    {res.error}
-                                                </p>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
 
