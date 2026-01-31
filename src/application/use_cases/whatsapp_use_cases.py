@@ -151,6 +151,39 @@ class ProcessWhatsAppMessageUseCase:
         # 3. CHECKOUT (Confirmación)
         checkout_keywords = ['confirmar', 'listo', 'finalizar', 'comprar', 'fin', 'total']
         if any(keyword in text_lower for keyword in checkout_keywords):
+            # Verificación de Cliente (Wizard Trigger)
+            # Solo permitir checkout directo si ya tenemos datos del cliente (DB o Sesión)
+            
+            client_fully_identified = False
+            
+            # 1. ¿Está en CRM? (DB)
+            if message_data.get('customer'):
+                client_fully_identified = True
+            
+            # 2. ¿Tiene datos en Sesión temporal?
+            elif self.session_repository:
+                session = self.session_repository.get_session(from_number)
+                if session and session.get('client_data') and session['client_data'].get('name'):
+                     client_fully_identified = True
+            
+            # Si NO está identificado, iniciar Wizard
+            if not client_fully_identified:
+                logger.info(f"Cliente {from_number} no identificado. Iniciando Wizard de registro.")
+                if self.session_repository:
+                    # Validar que tenga items antes de pedir datos
+                    session = self.session_repository.get_session(from_number)
+                    if not session or not session.get('items'):
+                         # Dejar que checkout handler maneje el error de "carrito vacío"
+                         return await self.checkout_handler.handle(message_data)
+                    
+                    # Iniciar Wizard
+                    self.session_repository.create_or_update_session(from_number, conversation_step='WAITING_NAME')
+                    await self.whatsapp_service.send_message(
+                        from_number, 
+                        "📝 Para generar tu recibo formal, necesito unos breves datos.\n\n¿Cuál es tu **Nombre y Apellido**?"
+                    )
+                    return {'success': True, 'action': 'start_registration_wizard'}
+
             return await self.checkout_handler.handle(message_data)
 
         # 4. COTIZACIÓN / AGREGAR ITEMS (Default)
